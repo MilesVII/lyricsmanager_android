@@ -1,6 +1,9 @@
 package com.milesseventh.lyricsmanager;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.util.Scanner;
 import java.util.Comparator;
 import java.util.ArrayList;
@@ -13,6 +16,8 @@ import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+
+import com.mpatric.mp3agic.*;
 
 public class MainActivity extends Activity {
 	private Button cd_b, com_b;
@@ -66,7 +71,7 @@ public class MainActivity extends Activity {
 				writeline("E: Path not found");
 			}
 		}
-};
+	};
 	
 	private OnClickListener com_listener = new OnClickListener(){
 		public void onClick (View _fuckoff){
@@ -100,7 +105,7 @@ public class MainActivity extends Activity {
 						if (!selected.contains(ls_list[_silliness]) && ls_list[_silliness].exists())
 							if(ls_list[_silliness].isDirectory()){
 								addSubFiles(ls_list[_silliness], selected);
-							}else if (ls_list[_silliness].isFile()/* && ls_list[_silliness].getName().endsWith(".mp3")*/){//Send some mp3 to AVD plz
+							}else if (ls_list[_silliness].isFile() && ls_list[_silliness].getName().endsWith(".mp3")){//Send some mp3 to AVD plz
 								selected.add(ls_list[_silliness]);
 							}
 					}else{
@@ -191,6 +196,35 @@ public class MainActivity extends Activity {
 				writeline("List of commands:");
 				return;
 			}
+			//STH command implementation
+			
+			if (_com.equalsIgnoreCase("hey") && depth == 0){
+				if (selected.size() == 0){
+					writeline("E: No files selected. Use 'add' command to select files or 'help' to see manual");
+					return;
+				}
+				depth = 7;
+				Mp3File _hmm;
+				try {
+					_hmm = new Mp3File(selected.get(0));
+					//writeline(_hmm.getId3v2Tag().getTitle());
+					//writeline(_hmm.getId3v2Tag().getLyrics());
+					//_hmm.getId3v2Tag().setLyrics("Let's\nfuck!");
+					//_hmm.save(selected.get(0).getPath()+"hey");
+				} catch (UnsupportedTagException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (InvalidDataException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (NotSupportedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
 		}
 	};
 	
@@ -237,7 +271,7 @@ public class MainActivity extends Activity {
 				_result.add(Integer.parseInt(_neck));
 			}
 			catch(NumberFormatException ex){
-				writeline(":" + _neck + ":Some argument members were ignored 'cause of parsing error");
+				writeline("Some argument members were ignored 'cause of parsing error");
 			}
 		}
 		return (_result);
