@@ -418,7 +418,7 @@ public class Mp3File extends FileWrapper {
 	
 	public void save(String newFilename) throws IOException, NotSupportedException {
 		if (file.compareTo(new File(newFilename)) == 0) {
-			throw new IllegalArgumentException("Save filename same as source filename");
+			//throw new IllegalArgumentException("Save filename same as source filename");
 		}
 		RandomAccessFile saveFile = new RandomAccessFile(newFilename, "rw");
 		try {

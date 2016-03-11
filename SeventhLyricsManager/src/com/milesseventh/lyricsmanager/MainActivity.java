@@ -1,13 +1,21 @@
 package com.milesseventh.lyricsmanager;
 
+import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.util.Scanner;
-import java.util.Comparator;
+import java.io.InputStreamReader;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Scanner;//Try to replace with String.split()
+import java.lang.Thread;
+
+import com.mpatric.mp3agic.ID3v2;
+import com.mpatric.mp3agic.InvalidDataException;
+import com.mpatric.mp3agic.Mp3File;
+import com.mpatric.mp3agic.UnsupportedTagException;
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -17,17 +25,19 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
-import com.mpatric.mp3agic.*;
-
-public class MainActivity extends Activity {
+public class MainActivity extends Activity{
 	private Button cd_b, com_b;
 	private EditText cd_f, com_f;
 	private TextView output;
 	private String cur_path = "/storage";
-	private int depth = 0;
+	public int depth = 0;
 	private File[] ls_list;
-	private ArrayList<File> selected = new ArrayList<File>();
+	public ArrayList<File> selected = new ArrayList<File>();
 	private String argument_holder;
+	private Thread pageDowner;
+	private boolean root_access_allowed = false;
+	private Processor jack;
+	public static MainActivity me;
 	private Comparator ls_comp = new Comparator(){
 		public int compare(Object o1, Object o2){
 			File f1 = (File) o1;
@@ -45,7 +55,8 @@ public class MainActivity extends Activity {
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
-
+		me = this;
+		
 		cd_b = (Button) findViewById(R.id.cd_button);
 		com_b = (Button) findViewById(R.id.enter_button);
 		cd_f = (EditText) findViewById(R.id.path_field);
@@ -57,19 +68,16 @@ public class MainActivity extends Activity {
 		
 		cd_b.setOnClickListener(cd_listener);
 		com_b.setOnClickListener(com_listener);
+		
+		writeline("Application uses lyrics.wikia.com to fetch lyrics. " +
+				  "If some lyrics weren't found or you've found any mistakes " + 
+				  "in lyrics then be a good pony and fix them on the wiki's site.\n" + 
+				  "Type 'help' into the second field to see the list of commands.");
 	}
 	
 	private OnClickListener cd_listener = new OnClickListener(){
 		public void onClick (View _fuckoff){
-			File _t = new File(cd_f.getText().toString());
-			if (_t.exists() && _t.isDirectory()){
-				cur_path = cd_f.getText().toString();
-				ls_list = _t.listFiles();
-				Arrays.sort(ls_list, ls_comp);
-				writeline("cd " + cur_path);
-			}else{
-				writeline("E: Path not found");
-			}
+			cd_command(cd_f.getText().toString());
 		}
 	};
 	
@@ -77,10 +85,28 @@ public class MainActivity extends Activity {
 		public void onClick (View _fuckoff){
 			String _com = com_f.getText().toString().trim().toLowerCase();
 			com_f.setText("");
+			//Root access unlocking
+			if (_com.equalsIgnoreCase("imnotsillyhorsy") && depth == 0){
+				writeline("");
+				writeline("Hope you know what you're doing. Access allowed.");
+				root_access_allowed = true;
+				return;
+			}
+			//CD command implementation
+			if (_com.startsWith("cd") && depth == 0){
+				//_com contains only argument
+				_com = _com.substring(2).trim();
+				ArrayList<Integer> _sluice = processComArgument(_com);
+				
+				if (_sluice.size() > 0 && ls_list.length > _sluice.get(0)){
+					writeline("");
+					cd_command(ls_list[_sluice.get(0)].getPath());
+				}
+				return;
+			}
 			//LS command implementation
 			if (_com.equalsIgnoreCase("ls") && depth == 0){
 				writeline("");
-				writeline("__________");
 				String _dirsep;
 				for (int i = ls_list.length - 1; i >= 0; i--){
 					_dirsep = ls_list[i].isDirectory()?"/":"";
@@ -119,7 +145,6 @@ public class MainActivity extends Activity {
 			if (_com.startsWith("show") && depth == 0){
 				if (_com.equalsIgnoreCase("show")){
 					writeline("");
-					writeline("__________");
 					for (int i = selected.size() - 1; i >= 0; i--){
 						writeline(Integer.toString(i) + ". " + selected.get(i).getName());
 					}
@@ -129,9 +154,7 @@ public class MainActivity extends Activity {
 				}else{
 					_com = _com.substring(4).trim();
 					ArrayList<Integer> _sluice = processComArgument(_com);
-
 					writeline("");
-					writeline("__________");
 					for (Integer _pony : _sluice){
 						if (_pony >= 0 && _pony < selected.size())
 							writeline(Integer.toString(_pony) + ". " + selected.get(_pony));
@@ -156,6 +179,7 @@ public class MainActivity extends Activity {
 					depth = 0;
 				}else
 					writeline("Question is the same");
+				return;
 			}
 			//REMOVE command implementation
 			if (_com.startsWith("remove") && depth == 0){
@@ -184,45 +208,48 @@ public class MainActivity extends Activity {
 					depth = 0;
 				}else
 					writeline("Question is the same");
+				return;
 			}
 			//HELP command implementation
 			if ((_com.startsWith("help") || _com.startsWith("man") || _com.startsWith("pony")) && depth == 0){
-				writeline("clear : reset selection\n");
-				writeline("remove n,n-n,n,n-n : remove some entries from selection");
-				writeline("show n,n-n,n,n-n : show selected files and their paths");
+				writeline("gl or getlyrics : downloads and writes lyrics into tags of selected files\n");
+				writeline("burndown : remove all lyrics from atgs of selected files");
+				writeline("clear : reset selection");
+				writeline("remove n,n-n : remove some entries from selection");
+				writeline("show n,n-n : show selected files and their paths");
 				writeline("show : show selected files");
-				writeline("add n,n-n,n,n-n : add files in n-positions and position ranges to selection");
+				writeline("add n,n-n : add files in n-positions and position ranges to selection");
+				writeline("cd n : open directory in position n");
 				writeline("ls : list files in current directory");
 				writeline("List of commands:");
 				return;
 			}
-			//STH command implementation
-			
-			if (_com.equalsIgnoreCase("hey") && depth == 0){
-				if (selected.size() == 0){
-					writeline("E: No files selected. Use 'add' command to select files or 'help' to see manual");
-					return;
+			//BURNDOWN command implementation
+			if (_com.equalsIgnoreCase("burndown") && depth == 0){
+				if (selected.size() > 0){
+					writeline("Lyrics of selected files will be erased. Say 'determined' to continue. \n");
+					depth = 3;
 				}
-				depth = 7;
-				Mp3File _hmm;
-				try {
-					_hmm = new Mp3File(selected.get(0));
-					//writeline(_hmm.getId3v2Tag().getTitle());
-					//writeline(_hmm.getId3v2Tag().getLyrics());
-					//_hmm.getId3v2Tag().setLyrics("Let's\nfuck!");
-					//_hmm.save(selected.get(0).getPath()+"hey");
-				} catch (UnsupportedTagException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				} catch (InvalidDataException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				} catch (NotSupportedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+				return;
+			}
+			if (depth == 3){
+				if (_com.equalsIgnoreCase("determined")){
+					depth = 7;
+					writeline("Say your last prayer you worthless filthy lyrics! " + 
+							  "Ashes is your name and you will fall! Raaaawwrrrr!!!");
+					jack = new Processor ("burndown");
+				}else{
+					depth = 0;
+					writeline("Operation aborted. Selected files are untouched.");
+				}
+				return;
+			}
+			//GETLYRICS command implementation
+			if ((_com.equalsIgnoreCase("gl") || _com.equalsIgnoreCase("getlyrics")) && depth == 0){
+				if (selected.size() > 0){
+					writeline("Operation is started");
+					depth = 7;
+					jack = new Processor("getlyrics");
 				}
 			}
 		}
@@ -260,6 +287,9 @@ public class MainActivity extends Activity {
 					for (int i = _l; i <= _r; i++)
 						_sluice.add(Integer.toString(i));
 				}
+				catch (NumberFormatException ex){
+					writeline("E: Error parsing '" + _neck + "'. Expression missed");
+				}
 				finally{
 					_sluice.remove(_neck);
 				}
@@ -271,13 +301,33 @@ public class MainActivity extends Activity {
 				_result.add(Integer.parseInt(_neck));
 			}
 			catch(NumberFormatException ex){
-				writeline("Some argument members were ignored 'cause of parsing error");
+				writeline("E: Error parsing '" + _neck + "'. Expression missed");
 			}
 		}
 		return (_result);
 	}
 	
-	private void writeline(String _pony){
-		output.setText(_pony + "\n" + output.getText());
+	private void cd_command(String _to){
+		File _t = new File(_to);
+		if (_t.exists() && _t.isDirectory())
+			if (!_t.getPath().equalsIgnoreCase("/") || root_access_allowed){
+				cur_path = _to;
+				ls_list = _t.listFiles();
+				Arrays.sort(ls_list, ls_comp);
+				cd_f.setText(cur_path);
+				writeline("You are here: " + cur_path);
+			}else
+				writeline("E: Root directory is unaccessible");
+		else
+			writeline("E: Path not found");
+		
+	}
+	
+	public synchronized void writeline(final String _pony){
+		super.runOnUiThread(new Runnable(){
+			public void run(){
+				output.setText(_pony + "\n" + output.getText());
+			}
+		});
 	}
 }
