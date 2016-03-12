@@ -91,9 +91,9 @@ public class Processor implements Runnable {
 				santitle = _victimtag.getTitle().substring(0, _victimtag.getTitle().indexOf("(") - 1);
 				trywithoutparesis = true;
 			}
-			String _lyr = pullLyrics(_victimtag.getArtist(), _victimtag.getTitle(), 0);
+			String _lyr = pullLyrics(_victimtag.getArtist(), _victimtag.getTitle().replace('[', '(').replace(']', ')'), 0);
 			if (_lyr == "NF" && trywithoutparesis){
-				_lyr = pullLyrics(_victimtag.getArtist(), santitle, 0);
+				_lyr = pullLyrics(_victimtag.getArtist(), santitle.replace('[', '(').replace(']', ')'), 0);
 				trywithoutparesis = false;
 			}
 			if (_lyr != "NF" && _lyr != null){
