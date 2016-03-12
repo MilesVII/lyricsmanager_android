@@ -51,30 +51,13 @@ public class Processor implements Runnable {
 			for (File _unicorn : friend.selected){
 				_complete++;
 				try {
-					Mp3File _victim = new Mp3File(_unicorn);
-					ID3v2 _victimtag = _victim.getId3v2Tag();
-					boolean trywithoutparesis = false;
-					if (_victimtag.getLyrics() == null){
-						String santitle = _victimtag.getTitle();
-						if (_victimtag.getTitle().contains("(")){
-							santitle = _victimtag.getTitle().substring(0, _victimtag.getTitle().indexOf("(") - 1);
-							trywithoutparesis = true;
-						}
-						String _lyr = pullLyrics(_victimtag.getArtist(), _victimtag.getTitle(), 0);
-						if (_lyr == "NF" && trywithoutparesis){
-							_lyr = pullLyrics(_victimtag.getArtist(), santitle, 0);
-							trywithoutparesis = false;
-						}
-						if (_lyr != "NF" && _lyr != null){
-							_victimtag.setLyrics(_lyr);
-							_victim.save(_unicorn.getPath()+".x");
-							overkill(_unicorn, new File (_unicorn.getPath()+".x"));
-							friend.writeline(Integer.toString(_complete) + _sizematters + _unicorn.getName() + " : lyrics downloaded and saved successfully.");
-						}else{
-							friend.writeline(Integer.toString(_complete) + _sizematters + _unicorn.getName() + " : lyrics not found.");
-						}
-					}else{
+					String _lyr = pullLyricsBind(_unicorn, true);
+					if (_lyr == "NF"){
+						friend.writeline(Integer.toString(_complete) + _sizematters + _unicorn.getName() + " : lyrics not found.");
+					}else if (_lyr.startsWith("EXIMAGIK:")){
 						friend.writeline(Integer.toString(_complete) + _sizematters + _unicorn.getName() + " : lyrics already exist. Ignored.");
+					}else{
+						friend.writeline(Integer.toString(_complete) + _sizematters + _unicorn.getName() + " : lyrics downloaded and saved successfully.");
 					}
 				} catch (UnsupportedTagException e) {} catch (InvalidDataException e) {} catch (IOException e) {} catch (NotSupportedException e) {}
 			}
@@ -83,63 +66,51 @@ public class Processor implements Runnable {
 		}
 		
 		if (mode.equalsIgnoreCase("showlyrics")){
-			int _complete = 0;
 			File _unicorn = friend.show_holder;
+			String _lyr;
 			try {
-				Mp3File _victim = new Mp3File(_unicorn);
-				ID3v2 _victimtag = _victim.getId3v2Tag();
-				boolean trywithoutparesis = false;
-				if (_victimtag.getLyrics() == null){
-					String santitle = _victimtag.getTitle();
-					if (_victimtag.getTitle().contains("(")){
-						santitle = _victimtag.getTitle().substring(0, _victimtag.getTitle().indexOf("(") - 1);
-						trywithoutparesis = true;
-					}
-					String _lyr = pullLyrics(_victimtag.getArtist(), _victimtag.getTitle(), 0);
-					if (_lyr == "NF" && trywithoutparesis){
-						_lyr = pullLyrics(_victimtag.getArtist(), santitle, 0);
-						trywithoutparesis = false;
-					}
-					if (_lyr != "NF" && _lyr != null){
-						friend.writeline("\n" + _unicorn.getName() + " : lyrics downloaded:\n" + _lyr);
-					}else{
-						friend.writeline("\n" + _unicorn.getName() + " : lyrics not found.\n");
-					}
-				}else{
-					friend.writeline("\n" + _unicorn.getName() + " : lyrics already exist: " + _victimtag.getLyrics() + "\n");
-				}
-			} catch (UnsupportedTagException e) {} catch (InvalidDataException e) {} catch (IOException e) {}
-			
+				_lyr = pullLyricsBind(_unicorn, false);
+				if (_lyr == "NF")
+					friend.writeline("\n" + _unicorn.getName() + " : lyrics not found.\n");
+				else if (_lyr.startsWith("EXIMAGIK:"))
+					friend.writeline("\n" + _unicorn.getName() + " : lyrics already exist: " + _lyr.substring(9));
+				else 
+					friend.writeline("\n" + _unicorn.getName() + " : lyrics downloaded:\n" + _lyr);
+			} catch (UnsupportedTagException e) {} catch (InvalidDataException e) {} catch (IOException e) {} catch (NotSupportedException e) {}
 			friend.depth = 0;
 		}
 	}
 	
-	
-	
-	public String pageDown(String _url){
-	    String line = "", all = "";
-	    URL myUrl = null;
-	    BufferedReader in = null;
-	    try {
-	        myUrl = new URL(_url);
-	        in = new BufferedReader(new InputStreamReader(myUrl.openStream()));
-
-	        while ((line = in.readLine()) != null) {
-	            all += line + "\n";
-	        }
-	    } catch (MalformedURLException e) {} catch (IOException e) {} 
-	    finally {
-	        if (in != null) {
-	            try {
-					in.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-	        }
-	    }
-	    return (all);
+	public String pullLyricsBind (File _unicorn, boolean writeintotag) throws UnsupportedTagException, InvalidDataException, IOException, NotSupportedException{
+		Mp3File _victim = new Mp3File(_unicorn);
+		ID3v2 _victimtag = _victim.getId3v2Tag();
+		boolean trywithoutparesis = false;
+		if (_victimtag.getLyrics() == null){
+			String santitle = _victimtag.getTitle();
+			if (_victimtag.getTitle().contains("(") && _victimtag.getTitle().indexOf("(") != 0){
+				santitle = _victimtag.getTitle().substring(0, _victimtag.getTitle().indexOf("(") - 1);
+				trywithoutparesis = true;
+			}
+			String _lyr = pullLyrics(_victimtag.getArtist(), _victimtag.getTitle(), 0);
+			if (_lyr == "NF" && trywithoutparesis){
+				_lyr = pullLyrics(_victimtag.getArtist(), santitle, 0);
+				trywithoutparesis = false;
+			}
+			if (_lyr != "NF" && _lyr != null){
+				if (writeintotag){
+					_victimtag.setLyrics(_lyr);
+					_victim.save(_unicorn.getPath()+".x");
+					overkill(_unicorn, new File (_unicorn.getPath()+".x"));
+					return("OK");
+				}else
+					return(_lyr);//Lyrics downloaded
+			}else{
+				return("NF");//Lyrics not found
+			}
+		}else{
+			return("EXIMAGIK:" + _victimtag.getLyrics());//Lyrics already exist
+		}
 	}
-	
 	//http://inversekarma.in/technology/net/fetching-lyrics-from-lyricwiki-in-c/
 	public String pullLyrics(String _artist, String _title, int depth){
 		if (depth >= 7)
@@ -176,7 +147,30 @@ public class Processor implements Runnable {
 		
 		return (_lyrics.substring(iStart, iEnd).trim().replace("&amp;", "&"));
 	}
-	
+
+	public String pageDown(String _url){
+	    String line = "", all = "";
+	    URL myUrl = null;
+	    BufferedReader in = null;
+	    try {
+	        myUrl = new URL(_url);
+	        in = new BufferedReader(new InputStreamReader(myUrl.openStream()));
+
+	        while ((line = in.readLine()) != null) {
+	            all += line + "\n";
+	        }
+	    } catch (MalformedURLException e) {} catch (IOException e) {} 
+	    finally {
+	        if (in != null) {
+	            try {
+					in.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+	        }
+	    }
+	    return (all);
+	}
 	//Method replaces first letter of all words to UPPERCASE and replaces all spaces with underscores.
 	private static String sanitize(String s){
 		char[] array = s.trim().toCharArray();

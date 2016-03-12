@@ -83,6 +83,7 @@ public class MainActivity extends Activity{
 	};
 	
 	private OnClickListener com_listener = new OnClickListener(){
+		@SuppressWarnings("deprecation")
 		public void onClick (View _fuckoff){
 			String _com = com_f.getText().toString().trim().toLowerCase();
 			com_f.setText("");
@@ -274,13 +275,13 @@ public class MainActivity extends Activity{
 			//ABORT command implementation
 			if (_com.equalsIgnoreCase("abort") && depth == 7){
 				if (jack != null){
-					writeline("\nAborted.");
 					jack._t.interrupt();
-					try {
-						jack.finalize();
-					} catch (Throwable e) {
-					}
-					depth = 0;
+					if(jack._t.isInterrupted()){
+						depth = 0;
+						jack = null;
+						writeline("\nAborted.");
+					}else
+						writeline("Sorry, operation is still running, please try again");
 				}
 				return;
 			}
