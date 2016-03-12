@@ -926,9 +926,13 @@ public abstract class AbstractID3v2Tag implements ID3v2 {
 	public void setLyrics(String _lyrs) {
 		if (_lyrs != null && _lyrs.length() > 0){
 			invalidateDataLength();
-			ID3v2CommentFrameData frameData = new ID3v2CommentFrameData(useFrameUnsynchronisation(), "eng", null, new EncodedText(_lyrs));
+			ID3v2CommentFrameData frameData = new ID3v2CommentFrameData(useFrameUnsynchronisation(), "eng", null, new EncodedText((byte)3, _lyrs));
 			addFrame(createFrame(ID_LYRICS, frameData.toBytes()), true);
 		}
+	}
+
+	public void removeLyrics() {
+		clearFrameSet(ID_LYRICS);
 	}
 
 	public void clearAlbumImage() {

@@ -33,6 +33,7 @@ public class MainActivity extends Activity{
 	public int depth = 0;
 	private File[] ls_list;
 	public ArrayList<File> selected = new ArrayList<File>();
+	public File show_holder;
 	private String argument_holder;
 	private Thread pageDowner;
 	private boolean root_access_allowed = false;
@@ -69,7 +70,7 @@ public class MainActivity extends Activity{
 		cd_b.setOnClickListener(cd_listener);
 		com_b.setOnClickListener(com_listener);
 		
-		writeline("Application uses lyrics.wikia.com to fetch lyrics. " +
+		writeline("\nApplication uses lyrics.wikia.com to fetch lyrics. " +
 				  "If some lyrics weren't found or you've found any mistakes " + 
 				  "in lyrics then be a good pony and fix them on the wiki's site.\n" + 
 				  "Type 'help' into the second field to see the list of commands.");
@@ -87,8 +88,7 @@ public class MainActivity extends Activity{
 			com_f.setText("");
 			//Root access unlocking
 			if (_com.equalsIgnoreCase("imnotsillyhorsy") && depth == 0){
-				writeline("");
-				writeline("Hope you know what you're doing. Access allowed.");
+				writeline("\nHope you know what you're doing. Access allowed.");
 				root_access_allowed = true;
 				return;
 			}
@@ -96,17 +96,15 @@ public class MainActivity extends Activity{
 			if (_com.startsWith("cd") && depth == 0){
 				//_com contains only argument
 				_com = _com.substring(2).trim();
-				ArrayList<Integer> _sluice = processComArgument(_com);
+				int _hugme = firstArgument(_com);
 				
-				if (_sluice.size() > 0 && ls_list.length > _sluice.get(0)){
-					writeline("");
-					cd_command(ls_list[_sluice.get(0)].getPath());
+				if (_hugme >= 0 && _hugme < ls_list.length){
+					cd_command(ls_list[_hugme].getPath());
 				}
 				return;
 			}
 			//LS command implementation
 			if (_com.equalsIgnoreCase("ls") && depth == 0){
-				writeline("");
 				String _dirsep;
 				for (int i = ls_list.length - 1; i >= 0; i--){
 					_dirsep = ls_list[i].isDirectory()?"/":"";
@@ -114,12 +112,11 @@ public class MainActivity extends Activity{
 				}
 				if (ls_list.length == 0)
 					writeline("No files in " + cur_path);
-				writeline(cur_path + " listing:");
+				writeline("\n" + cur_path + " listing:");
 				return;
 			}
 			//ADD command implementation
 			if (_com.startsWith("add") && depth == 0){
-				writeline("");
 				//_com contains only argument
 				_com = _com.substring(3).trim();
 				ArrayList<Integer> _sluice = processComArgument(_com);
@@ -138,44 +135,42 @@ public class MainActivity extends Activity{
 						writeline("E: Out of range. Position (" + Integer.toString(_silliness) + ") is larger than max position in current directory listing");
 					}
 				}
-				writeline(Integer.toString(selected.size() - _submissive) + " entries added to list");
+				writeline("\n" + Integer.toString(selected.size() - _submissive) + " entries added to list");
 				return;
 			}
 			//SHOW command implementation
 			if (_com.startsWith("show") && depth == 0){
 				if (_com.equalsIgnoreCase("show")){
-					writeline("");
 					for (int i = selected.size() - 1; i >= 0; i--){
 						writeline(Integer.toString(i) + ". " + selected.get(i).getName());
 					}
 					if (selected.size() == 0)
 						writeline("No files selected");
-					writeline("Selection listing:");
+					writeline("\nSelection listing:");
 				}else{
 					_com = _com.substring(4).trim();
 					ArrayList<Integer> _sluice = processComArgument(_com);
-					writeline("");
 					for (Integer _pony : _sluice){
 						if (_pony >= 0 && _pony < selected.size())
 							writeline(Integer.toString(_pony) + ". " + selected.get(_pony));
 					}
-					writeline("Detailed selection listing:");
+					writeline("\nDetailed selection listing:");
 				}
 				return;
 			}
 			//CLEAR command implementation
 			if (_com.equalsIgnoreCase("clear") && depth == 0){
-				writeline(selected.size() + " entries will be deselected. Continue? Y/N\n");
+				writeline(selected.size() + " entries will be deselected. Continue? Y/N");
 				depth = 1;
 				return;
 			}
 			if (depth == 1){
 				if (_com.charAt(0) == 'y'){
 					selected.clear();
-					writeline("Selection cleared\n");
+					writeline("\nSelection cleared");
 					depth = 0;
 				}else if (_com.charAt(0) == 'n'){
-					writeline("Okay, selection is untouched\n");
+					writeline("\nOkay, selection is untouched");
 					depth = 0;
 				}else
 					writeline("Question is the same");
@@ -185,7 +180,7 @@ public class MainActivity extends Activity{
 			if (_com.startsWith("remove") && depth == 0){
 				_com = _com.substring(6).trim();
 				argument_holder = _com;
-				writeline("These entries will be removed from selection list. Continue? Y/N\n");
+				writeline("These entries will be removed from selection list. Continue? Y/N");
 				depth = 2;
 				return;
 			}
@@ -201,10 +196,10 @@ public class MainActivity extends Activity{
 						}
 					}
 					selected = _death_surrounds;
-					writeline("Removing is complete. Use 'show' to check any changes");
+					writeline("\nRemoving is complete. Use 'show' to check any changes");
 					depth = 0;
 				}else if (_com.charAt(0) == 'n'){
-					writeline("Okay, selection is untouched\n");
+					writeline("\nOkay, selection is untouched");
 					depth = 0;
 				}else
 					writeline("Question is the same");
@@ -212,8 +207,11 @@ public class MainActivity extends Activity{
 			}
 			//HELP command implementation
 			if ((_com.startsWith("help") || _com.startsWith("man") || _com.startsWith("pony")) && depth == 0){
-				writeline("gl or getlyrics : downloads and writes lyrics into tags of selected files\n");
-				writeline("burndown : remove all lyrics from atgs of selected files");
+				writeline("\nclearconsole : clear console");
+				writeline("abort : stop current operation");
+				writeline("gl or getlyrics : download and write lyrics into tags of selected files");
+				writeline("loadlyrics n : download and show (but not write into tag) lyrics for the one of selected files");
+				writeline("burndown : remove all lyrics from tags of selected files");
 				writeline("clear : reset selection");
 				writeline("remove n,n-n : remove some entries from selection");
 				writeline("show n,n-n : show selected files and their paths");
@@ -227,8 +225,10 @@ public class MainActivity extends Activity{
 			//BURNDOWN command implementation
 			if (_com.equalsIgnoreCase("burndown") && depth == 0){
 				if (selected.size() > 0){
-					writeline("Lyrics of selected files will be erased. Say 'determined' to continue. \n");
+					writeline("Lyrics of selected files will be erased. Say 'determined' to continue.");
 					depth = 3;
+				}else{
+					writeline("\nE: No files selected");
 				}
 				return;
 			}
@@ -240,7 +240,7 @@ public class MainActivity extends Activity{
 					jack = new Processor ("burndown");
 				}else{
 					depth = 0;
-					writeline("Operation aborted. Selected files are untouched.");
+					writeline("\nOperation aborted. Selected files are untouched.");
 				}
 				return;
 			}
@@ -250,7 +250,47 @@ public class MainActivity extends Activity{
 					writeline("Operation is started");
 					depth = 7;
 					jack = new Processor("getlyrics");
+				}else{
+					writeline("\nE: No files selected");
 				}
+				return;
+			}
+			//LOADLYRICS command implementation
+			if (!_com.equalsIgnoreCase("loadlyrics") && _com.startsWith("loadlyrics") && depth == 0){
+				if (selected.size() == 0){
+					writeline("\nE: No files selected");
+					return;
+				}
+				
+				_com = _com.substring(10);
+				int _kissme = firstArgument(_com);
+				if (_kissme >= 0 && _kissme < selected.size()){
+					show_holder = selected.get(_kissme);
+					writeline("Loading...");
+					jack = new Processor("showlyrics");
+				}
+				return;
+			}
+			//ABORT command implementation
+			if (_com.equalsIgnoreCase("abort") && depth == 7){
+				if (jack != null){
+					writeline("\nAborted.");
+					jack._t.interrupt();
+					try {
+						jack.finalize();
+					} catch (Throwable e) {
+					}
+					depth = 0;
+				}
+				return;
+			}
+			//CLEARCONSOLE command implementation
+			if (_com.equalsIgnoreCase("clearconsole")){
+				output.setText("");
+			}
+			//SHOWCONTEXT command implementation
+			if (_com.equalsIgnoreCase("showcontext")){
+				writeline(Integer.toString(depth));
 			}
 		}
 	};
@@ -288,7 +328,7 @@ public class MainActivity extends Activity{
 						_sluice.add(Integer.toString(i));
 				}
 				catch (NumberFormatException ex){
-					writeline("E: Error parsing '" + _neck + "'. Expression missed");
+					writeline("E: Error parsing '" + _neck + "'. Expression ignored");
 				}
 				finally{
 					_sluice.remove(_neck);
@@ -301,10 +341,20 @@ public class MainActivity extends Activity{
 				_result.add(Integer.parseInt(_neck));
 			}
 			catch(NumberFormatException ex){
-				writeline("E: Error parsing '" + _neck + "'. Expression missed");
+				writeline("E: Error parsing '" + _neck + "'. Expression ignored");
 			}
 		}
 		return (_result);
+	}
+	
+	private int firstArgument(String _com){
+		ArrayList<Integer> _sluice = processComArgument(_com);
+		
+		if (_sluice.size() > 0){
+			return (_sluice.get(0));
+		}else{
+			return (-1);
+		}
 	}
 	
 	private void cd_command(String _to){
@@ -315,11 +365,11 @@ public class MainActivity extends Activity{
 				ls_list = _t.listFiles();
 				Arrays.sort(ls_list, ls_comp);
 				cd_f.setText(cur_path);
-				writeline("You are here: " + cur_path);
+				writeline("\ncd: " + cur_path);
 			}else
-				writeline("E: Root directory is unaccessible");
+				writeline("\nE: Root directory is unaccessible");
 		else
-			writeline("E: Path not found");
+			writeline("\nE: Path not found");
 		
 	}
 	

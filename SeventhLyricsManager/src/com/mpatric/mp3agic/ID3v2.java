@@ -82,9 +82,10 @@ public interface ID3v2 extends ID3v1 {
 
 	String getEncoder();
 	void setEncoder(String encoder);
-	
+
 	String getLyrics();
 	void setLyrics(String _lyrics);
+	void removeLyrics();
 	
 	byte[] getAlbumImage();
 	void setAlbumImage(byte[] albumImage, String mimeType);
