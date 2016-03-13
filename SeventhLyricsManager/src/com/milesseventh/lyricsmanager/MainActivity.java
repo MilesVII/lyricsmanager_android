@@ -1,21 +1,10 @@
 package com.milesseventh.lyricsmanager;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Scanner;//Try to replace with String.split()
-import java.lang.Thread;
-
-import com.mpatric.mp3agic.ID3v2;
-import com.mpatric.mp3agic.InvalidDataException;
-import com.mpatric.mp3agic.Mp3File;
-import com.mpatric.mp3agic.UnsupportedTagException;
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -35,7 +24,6 @@ public class MainActivity extends Activity{
 	public ArrayList<File> selected = new ArrayList<File>();
 	public File show_holder;
 	private String argument_holder;
-	private Thread pageDowner;
 	private boolean root_access_allowed = false;
 	private Processor jack;
 	public static MainActivity me;
@@ -83,7 +71,6 @@ public class MainActivity extends Activity{
 	};
 	
 	private OnClickListener com_listener = new OnClickListener(){
-		@SuppressWarnings("deprecation")
 		public void onClick (View _fuckoff){
 			String _com = com_f.getText().toString().trim().toLowerCase();
 			com_f.setText("");
@@ -208,7 +195,7 @@ public class MainActivity extends Activity{
 			}
 			//HELP command implementation
 			if ((_com.startsWith("help") || _com.startsWith("man") || _com.startsWith("pony")) && depth == 0){
-				writeline("\nclearconsole : clear console");
+				writeline("clearconsole : clear console");
 				writeline("abort : stop current operation");
 				writeline("gl or getlyrics : download and write lyrics into tags of selected files");
 				writeline("loadlyrics n : download and show (but not write into tag) lyrics for the one of selected files");
@@ -220,7 +207,7 @@ public class MainActivity extends Activity{
 				writeline("add n,n-n : add files in n-positions and position ranges to selection");
 				writeline("cd n : open directory in position n");
 				writeline("ls : list files in current directory");
-				writeline("List of commands:");
+				writeline("\nList of commands:");
 				return;
 			}
 			//BURNDOWN command implementation
@@ -274,15 +261,8 @@ public class MainActivity extends Activity{
 			}
 			//ABORT command implementation
 			if (_com.equalsIgnoreCase("abort") && depth == 7){
-				if (jack != null){
-					jack._t.interrupt();
-					if(jack._t.isInterrupted()){
-						depth = 0;
-						jack = null;
-						writeline("\nAborted.");
-					}else
-						writeline("Sorry, operation is still running, please try again");
-				}
+				if (jack != null)
+					jack.active = false;
 				return;
 			}
 			//CLEARCONSOLE command implementation
@@ -371,7 +351,6 @@ public class MainActivity extends Activity{
 				writeline("\nE: Root directory is unaccessible");
 		else
 			writeline("\nE: Path not found");
-		
 	}
 	
 	public synchronized void writeline(final String _pony){

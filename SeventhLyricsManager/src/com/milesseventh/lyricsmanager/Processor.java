@@ -14,8 +14,9 @@ import com.mpatric.mp3agic.NotSupportedException;
 import com.mpatric.mp3agic.UnsupportedTagException;
 
 public class Processor implements Runnable {
-	public String mode, log;
+	public String mode;
 	public Thread _t;
+	public boolean active = true;
 	private MainActivity friend = MainActivity.me;
 	
 	Processor (String _mode){
@@ -26,49 +27,63 @@ public class Processor implements Runnable {
 	
 	@Override
 	public void run() {
-		if (mode.equalsIgnoreCase("burndown")){
-			for (File _unicorn : friend.selected){
-				Mp3File _victim;
-				try {
-					_victim = new Mp3File (_unicorn);
-					_victim.getId3v2Tag().removeLyrics();
-					friend.writeline(_unicorn.getName() + " has no lyrics now");
-					_victim.save(_unicorn.getPath()+".x");
-					overkill(_unicorn, new File (_unicorn.getPath()+".x"));
-				} catch (UnsupportedTagException e) {
-				} catch (InvalidDataException e) {
-				} catch (IOException e) {
-				} catch (NotSupportedException e) {
-				}
-			}
-			friend.writeline("\nTheir blood is on your hooves. The work is done.");
-			friend.depth = 0;
-		}
-		
-		if (mode.equalsIgnoreCase("getlyrics")){
-			int _complete = 0;
-			String _sizematters = "/" + Integer.toString(friend.selected.size()) + ". ";
-			for (File _unicorn : friend.selected){
-				_complete++;
-				try {
-					String _lyr = pullLyricsBind(_unicorn, true);
-					if (_lyr == "NF"){
-						friend.writeline(Integer.toString(_complete) + _sizematters + _unicorn.getName() + " : lyrics not found.");
-					}else if (_lyr.startsWith("EXIMAGIK:")){
-						friend.writeline(Integer.toString(_complete) + _sizematters + _unicorn.getName() + " : lyrics already exist. Ignored.");
+		try{
+			if (mode.equalsIgnoreCase("burndown")){
+				for (File _unicorn : friend.selected){
+					if (active){
+						Mp3File _victim;
+						_victim = new Mp3File (_unicorn);
+						if(_victim.getId3v2Tag() != null){
+							_victim.getId3v2Tag().removeLyrics();
+							friend.writeline(_unicorn.getName() + " has no lyrics now");
+							_victim.save(_unicorn.getPath()+".x");
+							overkill(_unicorn, new File (_unicorn.getPath()+".x"));
+						}else{
+							friend.writeline(_unicorn.getName() + " : No ID3v2 tag");
+						}
 					}else{
-						friend.writeline(Integer.toString(_complete) + _sizematters + _unicorn.getName() + " : lyrics downloaded and saved successfully.");
+						friend.writeline("Operation is interrupted");
+						friend.depth = 0;
+						return;
 					}
-				} catch (UnsupportedTagException e) {} catch (InvalidDataException e) {} catch (IOException e) {} catch (NotSupportedException e) {}
+				}
+				friend.writeline("\nTheir blood is on your hooves. The work is done.");
+				friend.depth = 0;
 			}
-			friend.writeline("\nDone!");
-			friend.depth = 0;
-		}
-		
-		if (mode.equalsIgnoreCase("showlyrics")){
-			File _unicorn = friend.show_holder;
-			String _lyr;
-			try {
+			
+			if (mode.equalsIgnoreCase("getlyrics")){
+				int _log_ok = 0, _log_nf = 0, _log_ex = 0, _log_proced = 0;;
+				String _sizematters = "/" + Integer.toString(friend.selected.size()) + ". ";
+				for (File _unicorn : friend.selected){
+					if (active){
+						_log_proced++;
+						String _lyr = pullLyricsBind(_unicorn, true);
+						if (_lyr == "NF"){
+							_log_nf++;
+							friend.writeline(Integer.toString(_log_proced) + _sizematters + _unicorn.getName() + " : lyrics not found.");
+						}else if (_lyr.startsWith("EXIMAGIK:")){
+							_log_ex++;
+							friend.writeline(Integer.toString(_log_proced) + _sizematters + _unicorn.getName() + " : lyrics already exist. Ignored.");
+						}else{
+							_log_ok++;
+							friend.writeline(Integer.toString(_log_proced) + _sizematters + _unicorn.getName() + " : lyrics downloaded and saved successfully.");
+						}
+					}else{
+						friend.writeline("Operation is interrupted");
+						friend.depth = 0;
+						break;
+					}
+				}
+				friend.writeline("\nDone!\nDownloaded: " + Integer.toString(_log_ok) + 
+						 		 "\nIgnored due to existing lyrics: " + Integer.toString(_log_ex) + 
+						 		 "\nNot found: " + Integer.toString(_log_nf) + 
+						 		 "\n--Sum total: " + Integer.toString(_log_proced));
+				friend.depth = 0;
+			}
+			
+			if (mode.equalsIgnoreCase("showlyrics")){
+				File _unicorn = friend.show_holder;
+				String _lyr;
 				_lyr = pullLyricsBind(_unicorn, false);
 				if (_lyr == "NF")
 					friend.writeline("\n" + _unicorn.getName() + " : lyrics not found.\n");
@@ -76,14 +91,18 @@ public class Processor implements Runnable {
 					friend.writeline("\n" + _unicorn.getName() + " : lyrics already exist: " + _lyr.substring(9));
 				else 
 					friend.writeline("\n" + _unicorn.getName() + " : lyrics downloaded:\n" + _lyr);
-			} catch (UnsupportedTagException e) {} catch (InvalidDataException e) {} catch (IOException e) {} catch (NotSupportedException e) {}
-			friend.depth = 0;
+				friend.depth = 0;
+			}
+		}catch(Exception ex){
+			friend.writeline("\nCRITICAL ERROR:" + ex.toString() + "\n" + ex.getMessage());
 		}
 	}
 	
 	public String pullLyricsBind (File _unicorn, boolean writeintotag) throws UnsupportedTagException, InvalidDataException, IOException, NotSupportedException{
 		Mp3File _victim = new Mp3File(_unicorn);
 		ID3v2 _victimtag = _victim.getId3v2Tag();
+		if(_victimtag == null)
+			return("NF");
 		boolean trywithoutparesis = false;
 		if (_victimtag.getLyrics() == null){
 			String santitle = _victimtag.getTitle();
@@ -94,9 +113,8 @@ public class Processor implements Runnable {
 			String _lyr = pullLyrics(_victimtag.getArtist(), _victimtag.getTitle().replace('[', '(').replace(']', ')'), 0);
 			if (_lyr == "NF" && trywithoutparesis){
 				_lyr = pullLyrics(_victimtag.getArtist(), santitle.replace('[', '(').replace(']', ')'), 0);
-				trywithoutparesis = false;
 			}
-			if (_lyr != "NF" && _lyr != null){
+			if (_lyr != "NF" && _lyr != null)
 				if (writeintotag){
 					_victimtag.setLyrics(_lyr);
 					_victim.save(_unicorn.getPath()+".x");
@@ -104,12 +122,10 @@ public class Processor implements Runnable {
 					return("OK");
 				}else
 					return(_lyr);//Lyrics downloaded
-			}else{
+			else
 				return("NF");//Lyrics not found
-			}
-		}else{
+		}else
 			return("EXIMAGIK:" + _victimtag.getLyrics());//Lyrics already exist
-		}
 	}
 	//http://inversekarma.in/technology/net/fetching-lyrics-from-lyricwiki-in-c/
 	public String pullLyrics(String _artist, String _title, int depth){
@@ -131,7 +147,7 @@ public class Processor implements Runnable {
 			iStart = _lyrics.indexOf("#REDIRECT [[") + 12;
 			iEnd = _lyrics.indexOf("]]",iStart);
 			_artist = _lyrics.substring(iStart, iEnd).split(":")[0];//slice() was here
-			_title = _lyrics.substring(iStart, iEnd).split(":")[1];//slice() was here
+			_title = _lyrics.substring(iStart, iEnd).split(":")[1].replace("&amp;", "&");//slice() was here
 			return (pullLyrics(_artist, _title, 0));
 		} else if (_lyrics.contains("!-- PUT LYRICS HERE (and delete this entire line) -->"))//Lyrics not found
 			return ("NF");
@@ -174,23 +190,15 @@ public class Processor implements Runnable {
 	//Method replaces first letter of all words to UPPERCASE and replaces all spaces with underscores.
 	private static String sanitize(String s){
 		char[] array = s.trim().toCharArray();
-		if (array.length >= 1){
-			if (Character.isLowerCase(array[0])){
+		if (array.length >= 1 && Character.isLowerCase(array[0]))
 				array[0] = Character.toUpperCase(array[0]);
-			}
-		}
-		for (int i = 1; i < array.length; i++){
-			if (array[i - 1] == ' '){
-				if (Character.isLowerCase(array[i])){
+		for (int i = 1; i < array.length; i++)
+			if (array[i - 1] == ' ' && Character.isLowerCase(array[i]))
 					array[i] = Character.toUpperCase(array[i]);
-				}
-			}
-		}
 		return new String(array).trim().replace(' ', '_').replace("&", "%26");
 	}
 	
 	private void overkill(File _victim, File _master){
-		//String _blood = _victim.getName();
 		_victim.delete();
 		_master.renameTo(_victim);
 	}
