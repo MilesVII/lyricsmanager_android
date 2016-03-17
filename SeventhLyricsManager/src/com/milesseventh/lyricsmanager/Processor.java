@@ -33,14 +33,13 @@ public class Processor implements Runnable {
 					if (active){
 						Mp3File _victim;
 						_victim = new Mp3File (_unicorn);
-						if(_victim.getId3v2Tag() != null){
+						if (_victim.getId3v2Tag().getTitle() != null){
 							_victim.getId3v2Tag().removeLyrics();
 							friend.writeline(_unicorn.getName() + " has no lyrics now");
 							_victim.save(_unicorn.getPath()+".x");
 							overkill(_unicorn, new File (_unicorn.getPath()+".x"));
-						}else{
-							friend.writeline(_unicorn.getName() + " : No ID3v2 tag");
-						}
+						} else
+							friend.writeline(_unicorn.getName() + " : E: No ID3v2 tag or track title is null");
 					}else{
 						friend.writeline("Operation is interrupted");
 						friend.depth = 0;
@@ -61,10 +60,13 @@ public class Processor implements Runnable {
 						if (_lyr == "NF"){
 							_log_nf++;
 							friend.writeline(Integer.toString(_log_proced) + _sizematters + _unicorn.getName() + " : lyrics not found.");
-						}else if (_lyr.startsWith("EXIMAGIK:")){
+						} else if (_lyr == "NT"){
+							_log_nf++;
+							friend.writeline(Integer.toString(_log_proced) + _sizematters + _unicorn.getName() + " : E: No ID3v2 tag or track title is null");
+						} else if (_lyr.startsWith("EXIMAGIK:")){
 							_log_ex++;
 							friend.writeline(Integer.toString(_log_proced) + _sizematters + _unicorn.getName() + " : lyrics already exist. Ignored.");
-						}else{
+						} else{
 							_log_ok++;
 							friend.writeline(Integer.toString(_log_proced) + _sizematters + _unicorn.getName() + " : lyrics downloaded and saved successfully.");
 						}
@@ -77,7 +79,7 @@ public class Processor implements Runnable {
 				friend.writeline("\nDone!\nDownloaded: " + Integer.toString(_log_ok) + 
 						 		 "\nIgnored due to existing lyrics: " + Integer.toString(_log_ex) + 
 						 		 "\nNot found: " + Integer.toString(_log_nf) + 
-						 		 "\n--Sum total: " + Integer.toString(_log_proced));
+						 		 "\n--Sum total: " + Integer.toString(_log_proced) + "\n");
 				friend.depth = 0;
 			}
 			
@@ -85,24 +87,27 @@ public class Processor implements Runnable {
 				File _unicorn = friend.show_holder;
 				String _lyr;
 				_lyr = pullLyricsBind(_unicorn, false);
-				if (_lyr == "NF")
+				if (_lyr == "NT")
+					friend.writeline("\n" + _unicorn.getName() + " : No ID3v2 tag!\n");
+				else if (_lyr == "NF")
 					friend.writeline("\n" + _unicorn.getName() + " : lyrics not found.\n");
 				else if (_lyr.startsWith("EXIMAGIK:"))
-					friend.writeline("\n" + _unicorn.getName() + " : lyrics already exist: " + _lyr.substring(9));
+					friend.writeline("\n" + _unicorn.getName() + " : lyrics already exist:\n" + _lyr.substring(9));
 				else 
 					friend.writeline("\n" + _unicorn.getName() + " : lyrics downloaded:\n" + _lyr);
 				friend.depth = 0;
 			}
 		}catch(Exception ex){
 			friend.writeline("\nCRITICAL ERROR:" + ex.toString() + "\n" + ex.getMessage());
+			friend.depth = 0;
 		}
 	}
 	
 	public String pullLyricsBind (File _unicorn, boolean writeintotag) throws UnsupportedTagException, InvalidDataException, IOException, NotSupportedException{
 		Mp3File _victim = new Mp3File(_unicorn);
 		ID3v2 _victimtag = _victim.getId3v2Tag();
-		if(_victimtag == null)
-			return("NF");
+		if(_victimtag.getTitle() == null)
+			return("NT");
 		boolean trywithoutparesis = false;
 		if (_victimtag.getLyrics() == null){
 			String santitle = _victimtag.getTitle();

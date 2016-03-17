@@ -55,7 +55,11 @@ public class MainActivity extends Activity{
 		cd_f.setText(cur_path);
 		ls_list = new File(cur_path).listFiles();
 		
-		cd_b.setOnClickListener(cd_listener);
+		cd_b.setOnClickListener(new OnClickListener(){
+			public void onClick (View view_chan){
+				cd_command(cd_f.getText().toString());
+			}
+		});
 		com_b.setOnClickListener(com_listener);
 		
 		writeline("\nApplication uses lyrics.wikia.com to fetch lyrics. " +
@@ -64,14 +68,8 @@ public class MainActivity extends Activity{
 				  "Type 'help' into the second field to see the list of commands.");
 	}
 	
-	private OnClickListener cd_listener = new OnClickListener(){
-		public void onClick (View _fuckoff){
-			cd_command(cd_f.getText().toString());
-		}
-	};
-	
 	private OnClickListener com_listener = new OnClickListener(){
-		public void onClick (View _fuckoff){
+		public void onClick (View view_chan){
 			String _com = com_f.getText().toString().trim().toLowerCase();
 			com_f.setText("");
 			//Root access unlocking
@@ -86,18 +84,15 @@ public class MainActivity extends Activity{
 				_com = _com.substring(2).trim();
 				int _hugme = firstArgument(_com);
 				
-				if (_hugme >= 0 && _hugme < ls_list.length){
+				if (_hugme >= 0 && _hugme < ls_list.length)
 					cd_command(ls_list[_hugme].getPath());
-				}
 				return;
 			}
 			//LS command implementation
 			if (_com.equalsIgnoreCase("ls") && depth == 0){
 				String _dirsep;
-				for (int i = ls_list.length - 1; i >= 0; i--){
-					_dirsep = ls_list[i].isDirectory()?"/":"";
-					writeline(Integer.toString(i) + ". " + ls_list[i].getName() + _dirsep);
-				}
+				for (int i = ls_list.length - 1; i >= 0; i--)
+					writeline(Integer.toString(i) + ". " + ls_list[i].getName() + ( ls_list[i].isDirectory()?"/":""));
 				if (ls_list.length == 0)
 					writeline("No files in " + cur_path);
 				writeline("\n" + cur_path + " listing:");
@@ -112,16 +107,15 @@ public class MainActivity extends Activity{
 				//converting collected nums to pathnames and adding them to selected
 				int _submissive = selected.size();
 				for (Integer _silliness : _sluice){
-					if (_silliness >= 0 && _silliness < ls_list.length){
+					if (_silliness >= 0 && _silliness < ls_list.length)
 						if (!selected.contains(ls_list[_silliness]) && ls_list[_silliness].exists())
-							if(ls_list[_silliness].isDirectory()){
+							if(ls_list[_silliness].isDirectory())
 								addSubFiles(ls_list[_silliness], selected);
-							}else if (ls_list[_silliness].isFile() && ls_list[_silliness].getName().endsWith(".mp3")){//Send some mp3 to AVD plz
+							else if (ls_list[_silliness].isFile() && ls_list[_silliness].getName().endsWith(".mp3"))
 								selected.add(ls_list[_silliness]);
-							}
-					}else{
-						writeline("E: Out of range. Position (" + Integer.toString(_silliness) + ") is larger than max position in current directory listing");
-					}
+					else
+						writeline("E: Out of range. Position (" + Integer.toString(_silliness) + 
+								  ") is larger than max position in current directory listing");
 				}
 				writeline("\n" + Integer.toString(selected.size() - _submissive) + " entries added to list");
 				return;
@@ -129,19 +123,17 @@ public class MainActivity extends Activity{
 			//SHOW command implementation
 			if (_com.startsWith("show") && depth == 0){
 				if (_com.equalsIgnoreCase("show")){
-					for (int i = selected.size() - 1; i >= 0; i--){
+					for (int i = selected.size() - 1; i >= 0; i--)
 						writeline(Integer.toString(i) + ". " + selected.get(i).getName());
-					}
 					if (selected.size() == 0)
 						writeline("No files selected");
 					writeline("\nSelection listing:");
 				}else{
 					_com = _com.substring(4).trim();
 					ArrayList<Integer> _sluice = processComArgument(_com);
-					for (Integer _pony : _sluice){
+					for (Integer _pony : _sluice)
 						if (_pony >= 0 && _pony < selected.size())
 							writeline(Integer.toString(_pony) + ". " + selected.get(_pony));
-					}
 					writeline("\nDetailed selection listing:");
 				}
 				return;
@@ -195,19 +187,20 @@ public class MainActivity extends Activity{
 			}
 			//HELP command implementation
 			if ((_com.startsWith("help") || _com.startsWith("man") || _com.startsWith("pony")) && depth == 0){
-				writeline("clearconsole : clear console");
-				writeline("abort : stop current operation");
-				writeline("gl or getlyrics : download and write lyrics into tags of selected files");
-				writeline("loadlyrics n : download and show (but not write into tag) lyrics for the one of selected files");
-				writeline("burndown : remove all lyrics from tags of selected files");
-				writeline("clear : reset selection");
-				writeline("remove n,n-n : remove some entries from selection");
-				writeline("show n,n-n : show selected files and their paths");
-				writeline("show : show selected files");
-				writeline("add n,n-n : add files in n-positions and position ranges to selection");
-				writeline("cd n : open directory in position n");
-				writeline("ls : list files in current directory");
-				writeline("\nList of commands:");
+				writeline("\nList of commands:\n" +
+						"ls : list files in current directory\n" +
+						"cd n : open directory in position n\n" +
+						"add n,n-n : add files in n-positions and position ranges to selection\n" +
+						"show : show selected files\n" +
+						"show n,n-n : show selected files and their paths\n" +
+						"remove n,n-n : remove some entries from selection\n" +
+						"clear : reset selection\n" +
+						"burndown : remove all lyrics from tags of selected files\n" +
+						"loadlyrics n : download and show (but not write into tag) lyrics for the one of selected files\n" +
+						"gl or getlyrics : download and write lyrics into tags of selected files\n" +
+						"abort : stop current operation\n" +
+						"clearconsole : clear console\n" +
+						"about : show application info and license");
 				return;
 			}
 			//BURNDOWN command implementation
@@ -215,9 +208,8 @@ public class MainActivity extends Activity{
 				if (selected.size() > 0){
 					writeline("Lyrics of selected files will be erased. Say 'determined' to continue.");
 					depth = 3;
-				}else{
+				}else
 					writeline("\nE: No files selected");
-				}
 				return;
 			}
 			if (depth == 3){
@@ -238,9 +230,8 @@ public class MainActivity extends Activity{
 					writeline("Operation is started");
 					depth = 7;
 					jack = new Processor("getlyrics");
-				}else{
+				}else
 					writeline("\nE: No files selected");
-				}
 				return;
 			}
 			//LOADLYRICS command implementation
@@ -269,22 +260,38 @@ public class MainActivity extends Activity{
 			if (_com.equalsIgnoreCase("clearconsole")){
 				output.setText("");
 			}
-			//SHOWCONTEXT command implementation
-			if (_com.equalsIgnoreCase("showcontext")){
-				writeline(Integer.toString(depth));
+			//ABOUT command implementation
+			if (_com.equalsIgnoreCase("about") && depth == 0){
+				writeline("\n______________\n" + 
+						  "Seventh Lyrics Manager is free opensource application " + 
+						  "that allows you to automagically download and write " + 
+						  "song lyrics into ID3v2 tag that included by the most of MP3 " + 
+						  "files. There is a lot of music players which are able " + 
+						  "to show song lyric while playing. \n" +
+						  "Designed by Miles Seventh, 2016\n" +
+						  "License: Creative Commons CC BY-SA\n\n" + 
+						  "Disclaimer:\n" + 
+						  "Seventh Lyrics Manager is provided by Miles Seventh \"as is\" " + 
+						  "and \"with all faults\". Developer makes no representations or " + 
+						  "warranties of any kind concerning the safety, suitability, " + 
+						  "lack of viruses, inaccuracies, typographical errors, or other " + 
+						  "harmful components of this software. You are solely " + 
+						  "responsible for the protection of your equipment and backup " + 
+						  "of your data, and the Developer will not be liable for any " + 
+						  "damages you may suffer in connection with using, modifying, " + 
+						  "or distributing this software.\n______________");
 			}
 		}
 	};
 	
 	private void addSubFiles (File _dir, ArrayList<File> _receiver){
 		File[] _lick = _dir.listFiles();
-		for (File _saliva : _lick){
-			if(_saliva.isDirectory()){
+		for (File _saliva : _lick)
+			if(_saliva.isDirectory())
 				addSubFiles(_saliva, _receiver);
-			}else if (_saliva.isFile() && _saliva.getName().endsWith(".mp3") && !_receiver.contains(_saliva) && _saliva.exists()){
+			else if (_saliva.isFile() && _saliva.getName().endsWith(".mp3") && 
+					!_receiver.contains(_saliva) && _saliva.exists())
 				_receiver.add(_saliva);
-			}
-		}
 	}
 	
 	private ArrayList<Integer> processComArgument (String _argument){
@@ -293,9 +300,8 @@ public class MainActivity extends Activity{
 		ArrayList<Integer> _result = new ArrayList<Integer>();
 
 		Scanner	_unicorn = new Scanner(_argument).useDelimiter("\\s*,\\s*");
-		while(_unicorn.hasNext()){
+		while(_unicorn.hasNext())
 			_sluice.add(_unicorn.next());
-		}
 		_holder.addAll(_sluice);
 		for (String _neck : _holder){
 			if (_neck.contains("-")){
@@ -331,11 +337,10 @@ public class MainActivity extends Activity{
 	private int firstArgument(String _com){
 		ArrayList<Integer> _sluice = processComArgument(_com);
 		
-		if (_sluice.size() > 0){
+		if (_sluice.size() > 0)
 			return (_sluice.get(0));
-		}else{
+		else
 			return (-1);
-		}
 	}
 	
 	private void cd_command(String _to){
