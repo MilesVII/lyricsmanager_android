@@ -120,16 +120,16 @@ public class MainActivity extends Activity{
 				writeline("\n" + Integer.toString(selected.size() - _submissive) + " entries added to list");
 				return;
 			}
-			//SHOW command implementation
-			if (_com.startsWith("show") && depth == 0){
-				if (_com.equalsIgnoreCase("show")){
+			//SELECTION command implementation
+			if (_com.startsWith("selection") && depth == 0){
+				if (_com.equalsIgnoreCase("selection")){
 					for (int i = selected.size() - 1; i >= 0; i--)
 						writeline(Integer.toString(i) + ". " + selected.get(i).getName());
 					if (selected.size() == 0)
 						writeline("No files selected");
 					writeline("\nSelection listing:");
 				}else{
-					_com = _com.substring(4).trim();
+					_com = _com.substring(9).trim();
 					ArrayList<Integer> _sluice = processComArgument(_com);
 					for (Integer _pony : _sluice)
 						if (_pony >= 0 && _pony < selected.size())
@@ -145,15 +145,16 @@ public class MainActivity extends Activity{
 				return;
 			}
 			if (depth == 1){
-				if (_com.charAt(0) == 'y'){
-					selected.clear();
-					writeline("\nSelection cleared");
-					depth = 0;
-				}else if (_com.charAt(0) == 'n'){
-					writeline("\nOkay, selection is untouched");
-					depth = 0;
-				}else
-					writeline("Question is the same");
+				if(_com.length() > 0)
+					if (_com.charAt(0) == 'y'){
+						selected.clear();
+						writeline("\nSelection cleared");
+						depth = 0;
+					}else if (_com.charAt(0) == 'n'){
+						writeline("\nOkay, selection is untouched");
+						depth = 0;
+					}else
+						writeline("Question is the same");
 				return;
 			}
 			//REMOVE command implementation
@@ -191,12 +192,13 @@ public class MainActivity extends Activity{
 						"ls : list files in current directory\n" +
 						"cd n : open directory in position n\n" +
 						"add n,n-n : add files in n-positions and position ranges to selection\n" +
-						"show : show selected files\n" +
-						"show n,n-n : show selected files and their paths\n" +
+						"selection : show selected files\n" +
+						"selection n,n-n : show selected files and their paths\n" +
 						"remove n,n-n : remove some entries from selection\n" +
 						"clear : reset selection\n" +
 						"burndown : remove all lyrics from tags of selected files\n" +
-						"loadlyrics n : download and show (but not write into tag) lyrics for the one of selected files\n" +
+						"showlyrics n : download and show (but not write into tag) lyrics for the one of selected files\n" +
+						"showlyrics artist;title : download and show lyrics of selected song. Using example: \"showlyrics helmet;crashing foreign cars\"\n" +
 						"gl or getlyrics : download and write lyrics into tags of selected files\n" +
 						"abort : stop current operation\n" +
 						"clearconsole : clear console\n" +
@@ -234,19 +236,29 @@ public class MainActivity extends Activity{
 					writeline("\nE: No files selected");
 				return;
 			}
-			//LOADLYRICS command implementation
-			if (!_com.equalsIgnoreCase("loadlyrics") && _com.startsWith("loadlyrics") && depth == 0){
-				if (selected.size() == 0){
-					writeline("\nE: No files selected");
-					return;
-				}
-				
+			//SHOWLYRICS command implementation
+			if (!_com.equalsIgnoreCase("showlyrics") && _com.startsWith("showlyrics") && depth == 0){
 				_com = _com.substring(10);
-				int _kissme = firstArgument(_com);
-				if (_kissme >= 0 && _kissme < selected.size()){
-					show_holder = selected.get(_kissme);
-					writeline("Loading...");
-					jack = new Processor("showlyrics");
+				_com = _com.toLowerCase();
+				if (_com.contains(";")){
+					if (_com.split(";").length == 2){
+						show_holder = null;
+						writeline("Loading...");
+						jack = new Processor("showlyrics" + _com.split(";")[0].trim() + ";" + _com.split(";")[1].trim());
+					}
+				} else {
+					if (selected.size() == 0){
+						writeline("\nE: No files selected");
+						return;
+					}
+					
+					int _kissme = firstArgument(_com);
+					writeline(Integer.toString(_kissme));
+					if (_kissme >= 0 && _kissme < selected.size()){
+						show_holder = selected.get(_kissme);
+						writeline("Loading...");
+						jack = new Processor("showlyrics");
+					}
 				}
 				return;
 			}

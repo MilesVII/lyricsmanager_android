@@ -83,18 +83,33 @@ public class Processor implements Runnable {
 				friend.depth = 0;
 			}
 			
-			if (mode.equalsIgnoreCase("showlyrics")){
-				File _unicorn = friend.show_holder;
-				String _lyr;
-				_lyr = pullLyricsBind(_unicorn, false);
-				if (_lyr == "NT")
-					friend.writeline("\n" + _unicorn.getName() + " : No ID3v2 tag!\n");
+			if (mode.startsWith("showlyrics")){
+				String _lyr, _mane;
+				if (friend.show_holder == null){
+					_mane = "";
+					if (mode.contains(";") && mode.split(";").length == 2){
+						mode = mode.substring(10);
+						_lyr = pullLyrics(sanitize(mode.split(";")[0].trim()), 
+										  sanitize(mode.split(";")[1].trim()), 0);
+						_mane = sanitize(mode.split(";")[0].trim()) + " - " + 
+								sanitize(mode.split(";")[1].trim());
+					}else
+						_lyr = "IE";
+				} else {
+					File _unicorn = friend.show_holder;
+					_lyr = pullLyricsBind(_unicorn, false);
+					_mane = _unicorn.getName();
+				}
+				if (_lyr == "IE")
+					friend.writeline("\n" + _mane + " : Internal Error!\n");
+				else if (_lyr == "NT")
+					friend.writeline("\n" + _mane + " : No ID3v2 tag!\n");
 				else if (_lyr == "NF")
-					friend.writeline("\n" + _unicorn.getName() + " : lyrics not found.\n");
+					friend.writeline("\n" + _mane + " : lyrics not found.\n");
 				else if (_lyr.startsWith("EXIMAGIK:"))
-					friend.writeline("\n" + _unicorn.getName() + " : lyrics already exist:\n" + _lyr.substring(9));
+					friend.writeline("\n" + _mane + " : lyrics already exist:\n" + _lyr.substring(9));
 				else 
-					friend.writeline("\n" + _unicorn.getName() + " : lyrics downloaded:\n" + _lyr);
+					friend.writeline("\n" + _mane + " : lyrics downloaded:\n" + _lyr);
 				friend.depth = 0;
 			}
 		}catch(Exception ex){
