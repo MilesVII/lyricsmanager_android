@@ -28,7 +28,7 @@ public class Processor implements Runnable {
 	@Override
 	public void run() {
 		try{
-			if (mode.equalsIgnoreCase("burndown")){
+			if (mode.equalsIgnoreCase(friend.COM_BURNDOWN)){
 				for (File _unicorn : friend.selected){
 					if (active){
 						Mp3File _victim;
@@ -42,15 +42,15 @@ public class Processor implements Runnable {
 							friend.writeline(_unicorn.getName() + " : E: No ID3v2 tag or track title is null");
 					}else{
 						friend.writeline("Operation is interrupted");
-						friend.depth = 0;
+						friend.ctxt = friend.CTXT_IDLE;
 						return;
 					}
 				}
 				friend.writeline("\nTheir blood is on your hooves. The work is done.");
-				friend.depth = 0;
+				friend.ctxt = friend.CTXT_IDLE;
 			}
 			
-			if (mode.equalsIgnoreCase("getlyrics")){
+			if (mode.equalsIgnoreCase(friend.COM_GL)){
 				int _log_ok = 0, _log_nf = 0, _log_ex = 0, _log_proced = 0;;
 				String _sizematters = "/" + Integer.toString(friend.selected.size()) + ". ";
 				for (File _unicorn : friend.selected){
@@ -72,7 +72,7 @@ public class Processor implements Runnable {
 						}
 					}else{
 						friend.writeline("Operation is interrupted");
-						friend.depth = 0;
+						friend.ctxt = friend.CTXT_IDLE;
 						break;
 					}
 				}
@@ -80,19 +80,18 @@ public class Processor implements Runnable {
 						 		 "\nIgnored due to existing lyrics: " + Integer.toString(_log_ex) + 
 						 		 "\nNot found: " + Integer.toString(_log_nf) + 
 						 		 "\n--Sum total: " + Integer.toString(_log_proced) + "\n");
-				friend.depth = 0;
+				friend.ctxt = friend.CTXT_IDLE;
 			}
-			
-			if (mode.startsWith("showlyrics")){
+
+			if (mode.startsWith(friend.COM_SL)){
 				String _lyr, _mane;
 				if (friend.show_holder == null){
 					_mane = "";
 					if (mode.contains(";") && mode.split(";").length == 2){
-						mode = mode.substring(10);
+						mode = mode.substring(friend.COM_SL.length());
 						_lyr = pullLyrics(sanitize(mode.split(";")[0].trim()), 
 										  sanitize(mode.split(";")[1].trim()), 0);
-						_mane = sanitize(mode.split(";")[0].trim()) + " - " + 
-								sanitize(mode.split(";")[1].trim());
+						_mane = mode.split(";")[0].trim() + " - " + mode.split(";")[1].trim();
 					}else
 						_lyr = "IE";
 				} else {
@@ -106,15 +105,43 @@ public class Processor implements Runnable {
 					friend.writeline("\n" + _mane + " : No ID3v2 tag!\n");
 				else if (_lyr == "NF")
 					friend.writeline("\n" + _mane + " : lyrics not found.\n");
-				else if (_lyr.startsWith("EXIMAGIK:"))
-					friend.writeline("\n" + _mane + " : lyrics already exist:\n" + _lyr.substring(9));
-				else 
-					friend.writeline("\n" + _mane + " : lyrics downloaded:\n" + _lyr);
-				friend.depth = 0;
+				else {
+					if (_lyr.startsWith("EXIMAGIK:"))
+						friend.writeline("\n" + _mane + " : lyrics already exist:\n" + _lyr.substring(9));
+					else 
+						friend.writeline("\n" + _mane + " : lyrics downloaded:\n" + _lyr);
+					friend.copy_holder = _mane + "\n" + _lyr;
+				}
+				friend.ctxt = friend.CTXT_IDLE;
+			}
+			
+			if (mode.startsWith(friend.COM_SEARCH)){
+				String _res = "", _lyr, _query;
+				_query = mode.substring(friend.COM_SEARCH.length());
+				
+				for (File _unicorn : friend.selected){
+					if (active){
+						Mp3File _victim = new Mp3File (_unicorn);
+						_lyr = _victim.getId3v2Tag().getLyrics();
+						if (_lyr != null){
+							if (_lyr.toLowerCase().contains(_query))
+								_res += "\n" + _unicorn.getName();
+						}
+					}else{
+						friend.writeline("Operation is interrupted");
+						break;
+					}
+				}
+				
+				if (_res == "")
+					friend.writeline("\nNothing was found");
+				else
+					friend.writeline("\nText \"" + _query + "\" was found in following files:" + _res);
+				friend.ctxt = friend.CTXT_IDLE;
 			}
 		}catch(Exception ex){
 			friend.writeline("\nCRITICAL ERROR:" + ex.toString() + "\n" + ex.getMessage());
-			friend.depth = 0;
+			friend.ctxt = friend.CTXT_IDLE;
 		}
 	}
 	
@@ -224,7 +251,7 @@ public class Processor implements Runnable {
 	}
 	
 	protected void finalize() throws Throwable{
-		friend.depth = 0;
+		friend.ctxt = friend.CTXT_IDLE;
 		super.finalize();
 	}
 }

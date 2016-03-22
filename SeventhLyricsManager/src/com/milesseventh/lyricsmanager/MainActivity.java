@@ -1,12 +1,16 @@
 package com.milesseventh.lyricsmanager;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Scanner;//Try to replace with String.split()
 
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.os.Bundle;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -15,18 +19,44 @@ import android.widget.EditText;
 import android.widget.TextView;
 
 public class MainActivity extends Activity{
+	//Command names
+	public final String COM_LS = "ls";
+	public final String COM_CD = "cd";
+	public final String COM_ADD = "add";
+	public final String COM_SELECTION = "selection";
+	public final String COM_REMOVE = "remove";
+	public final String COM_CLEAR = "clear";
+	public final String COM_BURNDOWN = "burndown";
+	public final String COM_SL = "showlyrics";
+	public final String COM_GL = "getlyrics";
+	public final String COM_ALTGL = "gl";
+	public final String COM_SEARCH = "search";
+	public final String COM_ABORT = "abort";
+	public final String COM_COPY = "copy";
+	public final String COM_CLEARCONSOLE = "clearconsole";
+	public final String COM_HELP = "help";
+	public final String COM_ABOUT = "about";
+
+	public final int CTXT_IDLE = 0;
+	public final int CTXT_CLEARQ = 1;
+	public final int CTXT_REMOVEQ = 2;
+	public final int CTXT_BURNQ = 3;
+	public final int CTXT_BUSY = 7;
+	
 	private Button cd_b, com_b;
 	private EditText cd_f, com_f;
 	private TextView output;
 	private String cur_path = "/storage";
-	public int depth = 0;
+	public int ctxt = CTXT_IDLE;
 	private File[] ls_list;
 	public ArrayList<File> selected = new ArrayList<File>();
 	public File show_holder;
 	private String argument_holder;
 	private boolean root_access_allowed = false;
 	private Processor jack;
+	private ClipboardManager clipboard;
 	public static MainActivity me;
+	public String copy_holder;
 	private Comparator ls_comp = new Comparator(){
 		public int compare(Object o1, Object o2){
 			File f1 = (File) o1;
@@ -51,6 +81,7 @@ public class MainActivity extends Activity{
 		cd_f = (EditText) findViewById(R.id.path_field);
 		com_f = (EditText) findViewById(R.id.command_field);
 		output = (TextView) findViewById(R.id.output);
+		clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
 		
 		cd_f.setText(cur_path);
 		ls_list = new File(cur_path).listFiles();
@@ -62,7 +93,7 @@ public class MainActivity extends Activity{
 		});
 		com_b.setOnClickListener(com_listener);
 		
-		writeline("\nApplication uses lyrics.wikia.com to fetch lyrics. " +
+		writeline("\nApplication uses http://lyrics.wikia.com to fetch lyrics. " +
 				  "If some lyrics weren't found or you've found any mistakes " + 
 				  "in lyrics then be a good pony and fix them on the wiki's site.\n" + 
 				  "Type 'help' into the second field to see the list of commands.");
@@ -71,17 +102,19 @@ public class MainActivity extends Activity{
 	private OnClickListener com_listener = new OnClickListener(){
 		public void onClick (View view_chan){
 			String _com = com_f.getText().toString().trim().toLowerCase();
+			if(_com.length() == 0)
+				return;
 			com_f.setText("");
 			//Root access unlocking
-			if (_com.equalsIgnoreCase("imnotsillyhorsy") && depth == 0){
+			if (_com.equalsIgnoreCase("imnotsillyhorsy") && ctxt == CTXT_IDLE){
 				writeline("\nHope you know what you're doing. Access allowed.");
 				root_access_allowed = true;
 				return;
 			}
 			//CD command implementation
-			if (_com.startsWith("cd") && depth == 0){
+			if (_com.startsWith(COM_CD) && ctxt == CTXT_IDLE){
 				//_com contains only argument
-				_com = _com.substring(2).trim();
+				_com = _com.substring(COM_CD.length()).trim();
 				int _hugme = firstArgument(_com);
 				
 				if (_hugme >= 0 && _hugme < ls_list.length)
@@ -89,8 +122,7 @@ public class MainActivity extends Activity{
 				return;
 			}
 			//LS command implementation
-			if (_com.equalsIgnoreCase("ls") && depth == 0){
-				String _dirsep;
+			if (_com.equalsIgnoreCase(COM_LS) && ctxt == CTXT_IDLE){
 				for (int i = ls_list.length - 1; i >= 0; i--)
 					writeline(Integer.toString(i) + ". " + ls_list[i].getName() + ( ls_list[i].isDirectory()?"/":""));
 				if (ls_list.length == 0)
@@ -99,9 +131,9 @@ public class MainActivity extends Activity{
 				return;
 			}
 			//ADD command implementation
-			if (_com.startsWith("add") && depth == 0){
+			if (_com.startsWith(COM_ADD) && ctxt == CTXT_IDLE){
 				//_com contains only argument
-				_com = _com.substring(3).trim();
+				_com = _com.substring(COM_ADD.length()).trim();
 				ArrayList<Integer> _sluice = processComArgument(_com);
 				
 				//converting collected nums to pathnames and adding them to selected
@@ -121,15 +153,15 @@ public class MainActivity extends Activity{
 				return;
 			}
 			//SELECTION command implementation
-			if (_com.startsWith("selection") && depth == 0){
-				if (_com.equalsIgnoreCase("selection")){
+			if (_com.startsWith(COM_SELECTION) && ctxt == CTXT_IDLE){
+				if (_com.equalsIgnoreCase(COM_SELECTION)){
 					for (int i = selected.size() - 1; i >= 0; i--)
 						writeline(Integer.toString(i) + ". " + selected.get(i).getName());
 					if (selected.size() == 0)
 						writeline("No files selected");
 					writeline("\nSelection listing:");
 				}else{
-					_com = _com.substring(9).trim();
+					_com = _com.substring(COM_SELECTION.length()).trim();
 					ArrayList<Integer> _sluice = processComArgument(_com);
 					for (Integer _pony : _sluice)
 						if (_pony >= 0 && _pony < selected.size())
@@ -139,33 +171,32 @@ public class MainActivity extends Activity{
 				return;
 			}
 			//CLEAR command implementation
-			if (_com.equalsIgnoreCase("clear") && depth == 0){
+			if (_com.equalsIgnoreCase(COM_CLEAR) && ctxt == CTXT_IDLE){
 				writeline(selected.size() + " entries will be deselected. Continue? Y/N");
-				depth = 1;
+				ctxt = CTXT_CLEARQ;
 				return;
 			}
-			if (depth == 1){
-				if(_com.length() > 0)
-					if (_com.charAt(0) == 'y'){
-						selected.clear();
-						writeline("\nSelection cleared");
-						depth = 0;
-					}else if (_com.charAt(0) == 'n'){
-						writeline("\nOkay, selection is untouched");
-						depth = 0;
-					}else
-						writeline("Question is the same");
+			if (ctxt == CTXT_CLEARQ){
+				if (_com.charAt(0) == 'y'){
+					selected.clear();
+					writeline("\nSelection cleared");
+					ctxt = CTXT_IDLE;
+				}else if (_com.charAt(0) == 'n'){
+					writeline("\nOkay, selection is untouched");
+					ctxt = CTXT_IDLE;
+				}else
+					writeline("Question is the same");
 				return;
 			}
 			//REMOVE command implementation
-			if (_com.startsWith("remove") && depth == 0){
-				_com = _com.substring(6).trim();
+			if (_com.startsWith(COM_REMOVE) && ctxt == CTXT_IDLE){
+				_com = _com.substring(COM_REMOVE.length()).trim();
 				argument_holder = _com;
 				writeline("These entries will be removed from selection list. Continue? Y/N");
-				depth = 2;
+				ctxt = CTXT_REMOVEQ;
 				return;
 			}
-			if (depth == 2){
+			if (ctxt == CTXT_REMOVEQ){
 				if (_com.charAt(0) == 'y'){
 					ArrayList<Integer> _execution_list = processComArgument(argument_holder);
 					ArrayList<File> _death_surrounds = new ArrayList<File>();//Fast-fail avoider
@@ -177,74 +208,76 @@ public class MainActivity extends Activity{
 						}
 					}
 					selected = _death_surrounds;
-					writeline("\nRemoving is complete. Use 'show' to check any changes");
-					depth = 0;
+					writeline("\nRemoving is complete. Use '" + COM_SELECTION + "' to check any changes");
+					ctxt = CTXT_IDLE;
 				}else if (_com.charAt(0) == 'n'){
 					writeline("\nOkay, selection is untouched");
-					depth = 0;
+					ctxt = CTXT_IDLE;
 				}else
 					writeline("Question is the same");
 				return;
 			}
 			//HELP command implementation
-			if ((_com.startsWith("help") || _com.startsWith("man") || _com.startsWith("pony")) && depth == 0){
+			if (_com.startsWith(COM_HELP) && ctxt == CTXT_IDLE){
 				writeline("\nList of commands:\n" +
-						"ls : list files in current directory\n" +
-						"cd n : open directory in position n\n" +
-						"add n,n-n : add files in n-positions and position ranges to selection\n" +
-						"selection : show selected files\n" +
-						"selection n,n-n : show selected files and their paths\n" +
-						"remove n,n-n : remove some entries from selection\n" +
-						"clear : reset selection\n" +
-						"burndown : remove all lyrics from tags of selected files\n" +
-						"showlyrics n : download and show (but not write into tag) lyrics for the one of selected files\n" +
-						"showlyrics artist;title : download and show lyrics of selected song. Using example: \"showlyrics helmet;crashing foreign cars\"\n" +
-						"gl or getlyrics : download and write lyrics into tags of selected files\n" +
-						"abort : stop current operation\n" +
-						"clearconsole : clear console\n" +
-						"about : show application info and license");
+						  COM_LS + " : list files in current directory;\n" +
+						  COM_CD + " n : open directory in position n\n" +
+						  COM_ADD + " n,n-n : add files in n-positions and position ranges to selection;\n" +
+						  COM_SELECTION + " : show selected files;\n" +
+						  COM_SELECTION + " n,n-n : show selected files and their paths;\n" +
+						  COM_REMOVE + " n,n-n : remove some entries from selection;\n" +
+						  COM_CLEAR + " : reset selection;\n" +
+						  COM_BURNDOWN + " : remove all lyrics from tags of selected files;\n" +
+						  COM_SL + " n : download and show (but not write into tag) lyrics for the one of selected files;\n" +
+						  COM_SL + " artist;title : download and show lyrics of selected song. Using example: \"showlyrics helmet;crashing foreign cars\";\n" +
+						  COM_GL + " or " + COM_ALTGL + " : download and write lyrics into tags of selected files;\n" +
+						  COM_SEARCH + " searchquery: search for 'searchquery' in ID3v2 tag of selected files;\n" +
+						  COM_ABORT + " : stop current operation;\n" +
+						  COM_COPY + " : save the last showed lyrics to clipboard;\n" +
+						  COM_CLEARCONSOLE + " : clear console;\n" +
+						  COM_ABOUT + " : show application info;");
 				return;
 			}
 			//BURNDOWN command implementation
-			if (_com.equalsIgnoreCase("burndown") && depth == 0){
+			if (_com.equalsIgnoreCase(COM_BURNDOWN) && ctxt == CTXT_IDLE){
 				if (selected.size() > 0){
 					writeline("Lyrics of selected files will be erased. Say 'determined' to continue.");
-					depth = 3;
+					ctxt = CTXT_BURNQ;
 				}else
 					writeline("\nE: No files selected");
 				return;
 			}
-			if (depth == 3){
+			if (ctxt == CTXT_BURNQ){
 				if (_com.equalsIgnoreCase("determined")){
-					depth = 7;
+					ctxt = CTXT_BUSY;
 					writeline("Say your last prayer you worthless filthy lyrics! " + 
 							  "Ashes is your name and you will fall! Raaaawwrrrr!!!");
-					jack = new Processor ("burndown");
+					jack = new Processor (COM_BURNDOWN);
 				}else{
-					depth = 0;
+					ctxt = CTXT_IDLE;
 					writeline("\nOperation aborted. Selected files are untouched.");
 				}
 				return;
 			}
 			//GETLYRICS command implementation
-			if ((_com.equalsIgnoreCase("gl") || _com.equalsIgnoreCase("getlyrics")) && depth == 0){
+			if ((_com.equalsIgnoreCase(COM_GL) || _com.equalsIgnoreCase(COM_ALTGL)) && ctxt == CTXT_IDLE){
 				if (selected.size() > 0){
 					writeline("Operation is started");
-					depth = 7;
-					jack = new Processor("getlyrics");
+					ctxt = CTXT_BUSY;
+					jack = new Processor(COM_GL);
 				}else
 					writeline("\nE: No files selected");
 				return;
 			}
 			//SHOWLYRICS command implementation
-			if (!_com.equalsIgnoreCase("showlyrics") && _com.startsWith("showlyrics") && depth == 0){
-				_com = _com.substring(10);
-				_com = _com.toLowerCase();
+			if (!_com.equalsIgnoreCase(COM_SL) && _com.startsWith(COM_SL) && ctxt == CTXT_IDLE){
+				_com = _com.substring(COM_SL.length()).trim();
 				if (_com.contains(";")){
 					if (_com.split(";").length == 2){
+						_com = _com.toLowerCase();
 						show_holder = null;
 						writeline("Loading...");
-						jack = new Processor("showlyrics" + _com.split(";")[0].trim() + ";" + _com.split(";")[1].trim());
+						jack = new Processor(COM_SL + _com.split(";")[0].trim() + ";" + _com.split(";")[1].trim());
 					}
 				} else {
 					if (selected.size() == 0){
@@ -257,31 +290,30 @@ public class MainActivity extends Activity{
 					if (_kissme >= 0 && _kissme < selected.size()){
 						show_holder = selected.get(_kissme);
 						writeline("Loading...");
-						jack = new Processor("showlyrics");
+						jack = new Processor(COM_SL);
 					}
 				}
 				return;
 			}
 			//ABORT command implementation
-			if (_com.equalsIgnoreCase("abort") && depth == 7){
+			if (_com.equalsIgnoreCase(COM_ABORT) && ctxt == CTXT_BUSY){
 				if (jack != null)
 					jack.active = false;
 				return;
 			}
 			//CLEARCONSOLE command implementation
-			if (_com.equalsIgnoreCase("clearconsole")){
+			if (_com.equalsIgnoreCase(COM_CLEARCONSOLE)){
 				output.setText("");
 			}
 			//ABOUT command implementation
-			if (_com.equalsIgnoreCase("about") && depth == 0){
+			if (_com.equalsIgnoreCase(COM_ABORT) && ctxt == CTXT_IDLE){
 				writeline("\n______________\n" + 
 						  "Seventh Lyrics Manager is free opensource application " + 
 						  "that allows you to automagically download and write " + 
 						  "song lyrics into ID3v2 tag that included by the most of MP3 " + 
 						  "files. There is a lot of music players which are able " + 
-						  "to show song lyric while playing. \n" +
-						  "Designed by Miles Seventh, 2016\n" +
-						  "License: Creative Commons CC BY-SA\n\n" + 
+						  "to show song's lyric while playing. \n" +
+						  "Designed by Miles Seventh, 2016\n\n" +
 						  "Disclaimer:\n" + 
 						  "Seventh Lyrics Manager is provided by Miles Seventh \"as is\" " + 
 						  "and \"with all faults\". Developer makes no representations or " + 
@@ -292,6 +324,21 @@ public class MainActivity extends Activity{
 						  "of your data, and the Developer will not be liable for any " + 
 						  "damages you may suffer in connection with using, modifying, " + 
 						  "or distributing this software.\n______________");
+			}
+			//COPY command implementation
+			if (_com.equalsIgnoreCase(COM_COPY) && ctxt == CTXT_IDLE && copy_holder != null){
+				clipboard.setPrimaryClip(ClipData.newPlainText("Lyrics", copy_holder));
+				writeline("\nLast showed lyrics was successfully copied to clipboard");
+				return;
+			}
+			//SEARCH command implementation
+			if (_com.startsWith(COM_SEARCH) && ctxt == CTXT_IDLE){
+				_com = _com.substring(COM_SEARCH.length()).trim();
+				if (selected.size() == 0 || _com.length() == 0)
+					return;
+				writeline("Searching...");
+				jack = new Processor(COM_SEARCH + _com);
+				return;
 			}
 		}
 	};
@@ -360,7 +407,15 @@ public class MainActivity extends Activity{
 		if (_t.exists() && _t.isDirectory())
 			if (!_t.getPath().equalsIgnoreCase("/") || root_access_allowed){
 				cur_path = _to;
-				ls_list = _t.listFiles();
+				ls_list = _t.listFiles(new FileFilter(){
+					@Override
+					public boolean accept(File pathname){
+						if(pathname.isDirectory())
+							return true;
+						else 
+							return pathname.getName().endsWith(".mp3");
+					}
+				});
 				Arrays.sort(ls_list, ls_comp);
 				cd_f.setText(cur_path);
 				writeline("\ncd: " + cur_path);
