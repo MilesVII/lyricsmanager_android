@@ -4,8 +4,10 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLEncoder;
 
 import com.mpatric.mp3agic.ID3v2;
 import com.mpatric.mp3agic.InvalidDataException;
@@ -18,6 +20,7 @@ public class Processor implements Runnable {
 	public Thread _t;
 	public boolean active = true;
 	private MainActivity friend = MainActivity.me;
+	private int redir_amount = 0;
 	
 	Processor (String _mode){
 		mode = _mode;
@@ -57,6 +60,7 @@ public class Processor implements Runnable {
 					if (active){
 						_log_proced++;
 						String _lyr = pullLyricsBind(_unicorn, true);
+						redir_amount = 0;
 						if (_lyr == "NF"){
 							_log_nf++;
 							friend.writeline(Integer.toString(_log_proced) + _sizematters + _unicorn.getName() + " : lyrics not found.");
@@ -86,12 +90,19 @@ public class Processor implements Runnable {
 			if (mode.startsWith(friend.COM_SL)){
 				String _lyr, _mane;
 				if (friend.show_holder == null){
+					mode = mode.substring(friend.COM_SL.length());
+					boolean _forcereg;
+					if (mode.startsWith("!!")){
+						mode = mode.substring(2);
+						_forcereg = true;
+					} else
+						_forcereg = false;
+					
 					_mane = "";
-					if (mode.contains(";") && mode.split(";").length == 2){
-						mode = mode.substring(friend.COM_SL.length());
-						_lyr = pullLyrics(sanitize(mode.split(";")[0].trim()), 
-										  sanitize(mode.split(";")[1].trim()), 0);
-						_mane = mode.split(";")[0].trim() + " - " + mode.split(";")[1].trim();
+					String[] _horse = mode.split(friend.Q_SPLT);
+					if (mode.contains(friend.Q_SPLT)/* && _horse.length == 2 //Already checked before*/){
+						_lyr = pullLyrics(_horse[0].trim(), _horse[1].trim(), 0, _forcereg);
+						_mane = _horse[0].trim() + " " + friend.Q_SPLT + " " + _horse[1].trim();
 					}else
 						_lyr = "IE";
 				} else {
@@ -157,9 +168,9 @@ public class Processor implements Runnable {
 				santitle = _victimtag.getTitle().substring(0, _victimtag.getTitle().indexOf("(") - 1);
 				trywithoutparesis = true;
 			}
-			String _lyr = pullLyrics(_victimtag.getArtist(), _victimtag.getTitle().replace('[', '(').replace(']', ')'), 0);
+			String _lyr = pullLyrics(_victimtag.getArtist(), _victimtag.getTitle().replace('[', '(').replace(']', ')'), 0, false);
 			if (_lyr == "NF" && trywithoutparesis){
-				_lyr = pullLyrics(_victimtag.getArtist(), santitle.replace('[', '(').replace(']', ')'), 0);
+				_lyr = pullLyrics(_victimtag.getArtist(), santitle.replace('[', '(').replace(']', ')'), 0, false);
 			}
 			if (_lyr != "NF" && _lyr != null)
 				if (writeintotag){
@@ -175,27 +186,44 @@ public class Processor implements Runnable {
 			return("EXIMAGIK:" + _victimtag.getLyrics());//Lyrics already exist
 	}
 	//http://inversekarma.in/technology/net/fetching-lyrics-from-lyricwiki-in-c/
-	public String pullLyrics(String _artist, String _title, int depth){
-		if (depth >= 7)
+	public String pullLyrics(String _artist, String _title, int depth, boolean _fg){
+		if (depth >= 7){
+			friend.writeline("Timeout. Please, try again later");
 			return ("NF");
+		}
 		
-		String _lyrics;
+		String _lyrics, _cleanurl;
 		int iStart = 0;
 		int iEnd = 0;
+		String _rawquery = sanitize(_artist, _fg) + ":" + sanitize(_title, _fg);
 		
-		_lyrics = pageDown("http://lyrics.wikia.com/index.php?title=" + sanitize(_artist) + ":" + sanitize(_title) + "&action=edit");
+		_cleanurl = "http://lyrics.wikia.com/index.php?title=";
+		try {
+			_cleanurl += URLEncoder.encode(_rawquery.split(":")[0], "UTF-8") +
+						":" + URLEncoder.encode(_rawquery.split(":")[1], "UTF-8") + "&action=edit";
+		} catch (UnsupportedEncodingException e) {
+			friend.writeline("Error occured while encoding query string. Trying to use less safe method...");
+			_cleanurl += _rawquery + "&action=edit";
+		}
+		_lyrics = pageDown(_cleanurl);
 		
 		//String downloading was interrupted
 		if (!_lyrics.contains("</html>"))
-			return (pullLyrics(_artist, _title, depth++));
+			return (pullLyrics(_artist, _title, ++depth, _fg));
 			
 		//If Lyrics Wikia is suggesting a redirect, pull lyrics for that.
 		if (_lyrics.contains("#REDIRECT")){
+			if(redir_amount++ >= 3){//To be honest: I dont understand this kind of magic. Tho it doesnt matter
+				friend.writeline("Error: Reached redirecton limit.");
+				return ("NF");
+			}
+			
 			iStart = _lyrics.indexOf("#REDIRECT [[") + 12;
 			iEnd = _lyrics.indexOf("]]",iStart);
 			_artist = _lyrics.substring(iStart, iEnd).split(":")[0];//slice() was here
 			_title = _lyrics.substring(iStart, iEnd).split(":")[1].replace("&amp;", "&");//slice() was here
-			return (pullLyrics(_artist, _title, 0));
+			friend.writeline("Query redirected to " + _artist + " - " + _title);
+			return (pullLyrics(_artist, _title, 0, _fg));
 		} else if (_lyrics.contains("!-- PUT LYRICS HERE (and delete this entire line) -->"))//Lyrics not found
 			return ("NF");
 		
@@ -235,14 +263,16 @@ public class Processor implements Runnable {
 	    return (all);
 	}
 	//Method replaces first letter of all words to UPPERCASE and replaces all spaces with underscores.
-	private static String sanitize(String s){
+	private static String sanitize(String s, boolean _fg){
 		char[] array = s.trim().toCharArray();
-		if (array.length >= 1 && Character.isLowerCase(array[0]))
-				array[0] = Character.toUpperCase(array[0]);
-		for (int i = 1; i < array.length; i++)
-			if (array[i - 1] == ' ' && Character.isLowerCase(array[i]))
-					array[i] = Character.toUpperCase(array[i]);
-		return new String(array).trim().replace(' ', '_').replace("&", "%26");
+		if (!_fg){
+			if (array.length >= 1 && Character.isLowerCase(array[0]))
+					array[0] = Character.toUpperCase(array[0]);
+			for (int i = 1; i < array.length; i++)
+				if (array[i - 1] == ' ' && Character.isLowerCase(array[i]))
+						array[i] = Character.toUpperCase(array[i]);
+		}
+		return new String(array).trim().replace(' ', '_')/*.replace("&", "%26")*/;
 	}
 	
 	private void overkill(File _victim, File _master){

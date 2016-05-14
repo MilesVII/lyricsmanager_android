@@ -5,7 +5,7 @@ import java.io.FileFilter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.Scanner;//Try to replace with String.split()
+//import java.util.Scanner;//Try to replace with String.split()
 
 import android.app.Activity;
 import android.content.ClipData;
@@ -36,6 +36,8 @@ public class MainActivity extends Activity{
 	public final String COM_CLEARCONSOLE = "clearconsole";
 	public final String COM_HELP = "help";
 	public final String COM_ABOUT = "about";
+	
+	public final String Q_SPLT = "--"; //Query splitter, string that divides artist' name and track title
 
 	public final int CTXT_IDLE = 0;
 	public final int CTXT_CLEARQ = 1;
@@ -229,7 +231,8 @@ public class MainActivity extends Activity{
 						  COM_CLEAR + " : reset selection;\n" +
 						  COM_BURNDOWN + " : remove all lyrics from tags of selected files;\n" +
 						  COM_SL + " n : download and show (but not write into tag) lyrics for the one of selected files;\n" +
-						  COM_SL + " artist;title : download and show lyrics of selected song. Using example: \"showlyrics helmet;crashing foreign cars\";\n" +
+						  COM_SL + " artist--title : download and show lyrics of selected song. Using example: \"showlyrics helmet--crashing foreign cars\";\n" +
+						  COM_SL + "!!artist--title : the same command, but letter case isn't changed\n" +
 						  COM_GL + " or " + COM_ALTGL + " : download and write lyrics into tags of selected files;\n" +
 						  COM_SEARCH + " searchquery: search for 'searchquery' in ID3v2 tag of selected files;\n" +
 						  COM_ABORT + " : stop current operation;\n" +
@@ -272,12 +275,12 @@ public class MainActivity extends Activity{
 			//SHOWLYRICS command implementation
 			if (!_com.equalsIgnoreCase(COM_SL) && _com.startsWith(COM_SL) && ctxt == CTXT_IDLE){
 				_com = _com.substring(COM_SL.length()).trim();
-				if (_com.contains(";")){
-					if (_com.split(";").length == 2){
+				if (_com.contains(Q_SPLT)){
+					if (_com.split(Q_SPLT).length == 2){
 						_com = _com.toLowerCase();
 						show_holder = null;
 						writeline("Loading...");
-						jack = new Processor(COM_SL + _com.split(";")[0].trim() + ";" + _com.split(";")[1].trim());
+						jack = new Processor(COM_SL + _com/*.split(";")[0].trim() + ";" + _com.split(";")[1].trim()*/);
 					}
 				} else {
 					if (selected.size() == 0){
@@ -306,14 +309,14 @@ public class MainActivity extends Activity{
 				output.setText("");
 			}
 			//ABOUT command implementation
-			if (_com.equalsIgnoreCase(COM_ABORT) && ctxt == CTXT_IDLE){
+			if (_com.equalsIgnoreCase(COM_ABOUT) && ctxt == CTXT_IDLE){
 				writeline("\n______________\n" + 
 						  "Seventh Lyrics Manager is free opensource application " + 
 						  "that allows you to automagically download and write " + 
 						  "song lyrics into ID3v2 tag that included by the most of MP3 " + 
 						  "files. There is a lot of music players which are able " + 
-						  "to show song's lyric while playing. \n" +
-						  "Designed by Miles Seventh, 2016\n\n" +
+						  "to show song's lyric while playing it. \n" +
+						  "Developed by Miles Seventh, 2016\n\n" +
 						  "Disclaimer:\n" + 
 						  "Seventh Lyrics Manager is provided by Miles Seventh \"as is\" " + 
 						  "and \"with all faults\". Developer makes no representations or " + 
@@ -353,20 +356,22 @@ public class MainActivity extends Activity{
 				_receiver.add(_saliva);
 	}
 	
-	private ArrayList<Integer> processComArgument (String _argument){
+	private ArrayList<Integer> processComArgument (String _argument){//Converts sequences and ranges of numbers into array
 		ArrayList<String> _sluice = new ArrayList<String>();
 		ArrayList<String> _holder = new ArrayList<String>();//Fail-fast avoider
 		ArrayList<Integer> _result = new ArrayList<Integer>();
-
-		Scanner	_unicorn = new Scanner(_argument).useDelimiter("\\s*,\\s*");
-		while(_unicorn.hasNext())
-			_sluice.add(_unicorn.next());
+		String[] _unicorn = _argument.split(","); 
+		
+		for (String _neck : _unicorn)////Why cant I just use _sluice.addAll(_unicorn)?
+			_sluice.add(_neck);
 		_holder.addAll(_sluice);
 		for (String _neck : _holder){
 			if (_neck.contains("-")){
 				try{
-					int _l = Integer.parseInt(_neck.substring(0, _neck.indexOf("-")));
-					int _r = Integer.parseInt(_neck.substring(_neck.indexOf("-") + 1, _neck.length()));
+					/*int _l = Integer.parseInt(_neck.substring(0, _neck.indexOf("-")));
+					int _r = Integer.parseInt(_neck.substring(_neck.indexOf("-") + 1, _neck.length()));*/
+					int _l = Integer.parseInt(_neck.split("-")[0]);
+					int _r = Integer.parseInt(_neck.split("-")[1]);
 					if (_l > _r){
 						int _z = _l; _l = _r; _r = _z;
 					}
