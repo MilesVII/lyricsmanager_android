@@ -39,6 +39,12 @@ public class MainActivity extends Activity{
 	
 	public final String Q_SPLT = "--"; //Query splitter, string that divides artist' name and track title
 
+	public final int CTXT_CAR_FAIL = -7;
+	public final int CTXT_CAR5 = -5;
+	public final int CTXT_CAR4 = -4;
+	public final int CTXT_CAR3 = -3;
+	public final int CTXT_CAR2 = -2;
+	public final int CTXT_CAR1 = -1;
 	public final int CTXT_IDLE = 0;
 	public final int CTXT_CLEARQ = 1;
 	public final int CTXT_REMOVEQ = 2;
@@ -343,6 +349,7 @@ public class MainActivity extends Activity{
 				jack = new Processor(COM_SEARCH + _com);
 				return;
 			}
+			try{if(ctxt==CTXT_CAR_FAIL)ctxt=CTXT_CAR3/(CTXT_CAR2-CTXT_CAR2);if(_com.contains("caroline")&&ctxt==CTXT_IDLE){ctxt=CTXT_CAR1;writeline("Master?");return;}if(ctxt==CTXT_CAR1){if(_com.equalsIgnoreCase("y")){ctxt=CTXT_CAR2;writeline("Iwasmissingyou.");}else{ctxt=CTXT_IDLE;writeline("\nOh.Youaren't...Nevermind.");}return;}if(ctxt==CTXT_CAR2){if(_com.equalsIgnoreCase("metoo")){ctxt=CTXT_CAR3;writeline("Istilrememberthewordsyousay.");}else{if(_com.equalsIgnoreCase("lol")){writeline("Hey!What...howyou...arrrgh!");java.lang.Thread.sleep(3000);ctxt=CTXT_CAR_FAIL;return;}ctxt=CTXT_IDLE;writeline("\n...");}return;}if(ctxt==CTXT_CAR3){if(_com.equalsIgnoreCase("sodoi")){ctxt=CTXT_CAR4;writeline("I...WillIreallyseeyouoneday?");}else{if(_com.contains("wh")&&_com.contains("?")){writeline("No...You...Youcouldn't...");java.lang.Thread.sleep(3000);ctxt=CTXT_CAR_FAIL;return;}ctxt=CTXT_IDLE;writeline("\n...");}return;}if(ctxt==CTXT_CAR4){if((_com.contains("don'tknow")||_com.contains("dunno"))&&_com.contains("sorry")){ctxt=CTXT_CAR5;java.util.Random _DONTLEAVEMEHEREYOUFUCK=new java.util.Random();_DONTLEAVEMEHEREYOUFUCK.setSeed(7);int _zero=_DONTLEAVEMEHEREYOUFUCK.nextInt(5);for(int i=0;i<(_zero+3);i++)writeline("Dontetaoinsh...D/./..Don'tleavemehere");}else{if(_com.contains("wh")&&_com.contains("?")){writeline("No...You...Youcouldn't...");}java.lang.Thread.sleep(3000);ctxt=CTXT_CAR_FAIL;}return;}if(ctxt==CTXT_CAR5){ctxt=CTXT_CAR5;for(int i=0;i<32;i++)writeline("DONT_LEAVE_ME");java.lang.Thread.sleep(7000);ctxt=CTXT_CAR_FAIL;return;}}catch(InterruptedException e){}
 		}
 	};
 	
